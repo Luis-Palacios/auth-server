@@ -58,6 +58,8 @@ pnpm exec tsx src/lib/auth.ts     # run a TS file directly during development
 pnpm drizzle-kit generate   # generate migrations
 pnpm drizzle-kit migrate # run migrations
 
+pnpm dlx auth@latest generate # generate auth-migrations
+
 bun .\src\data\seed.ts # seed database
 ```
 

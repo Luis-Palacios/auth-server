@@ -1,14 +1,22 @@
 import { db } from './database.js';
-import { personTable } from './schema.js';
+import { user } from './schemas/auth-schema.js';
+
 
 async function main() {
-  const person: typeof personTable.$inferInsert = {
-    firstName: 'John',
-    lastName: 'Doe',
-    email: 'john.doe@example.com',
+  // TODO: Insert some sort of super admin user
+  const superAdmin: typeof user.$inferInsert = {
+    id: 'superadmin',
+    name: 'Super Admin',
+    email: 'superadmin@example.com',
+    emailVerified: true,
+    image: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
   };
 
-  await db.insert(personTable).values(person);
+  await db.insert(user).values(superAdmin);
+
+
 }
 
 main().catch(console.error);
