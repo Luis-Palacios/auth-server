@@ -7,6 +7,15 @@ Standalone authentication service for the `members-management` project, built on
 
 Early-stage scaffold — no server entrypoint, database, or routes wired up yet.
 
+## Prerequisites
+
+- [Node.js 24](https://nodejs.org/en/download) — the required JavaScript runtime (version is pinned in `.nvmrc`).
+- [pnpm 12.3.4](https://pnpm.io/installation) — the required package manager.
+- [Bun](https://bun.sh/docs/installation) — used to run the database seed script.
+- [PostgreSQL](https://www.postgresql.org/download/) — required by the configured Drizzle/PostgreSQL database layer. You can
+  install it locally or run it in [Docker](https://docs.docker.com/get-started/get-docker/); set its connection string as
+  `DATABASE_URL` in `.env`.
+
 ## Tech stack
 
 - **TypeScript** — strict mode, ESM (`nodenext`)
