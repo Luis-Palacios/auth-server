@@ -45,6 +45,11 @@ pnpm exec biome check --write .   # lint + auto-fix
 pnpm exec biome format --write .  # format only
 pnpm exec tsc --noEmit            # type-check
 pnpm exec tsx src/lib/auth.ts     # run a TS file directly during development
+
+pnpm drizzle-kit generate   # generate migrations
+pnpm drizzle-kit migrate # run migrations
+
+bun .\src\data\database.ts # seed database
 ```
 
 No `build`, `dev`, `start`, or `test` scripts are defined yet.
