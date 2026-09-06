@@ -58,7 +58,7 @@ pnpm exec tsx src/lib/auth.ts     # run a TS file directly during development
 pnpm drizzle-kit generate   # generate migrations
 pnpm drizzle-kit migrate # run migrations
 
-bun .\src\data\database.ts # seed database
+bun .\src\data\seed.ts # seed database
 ```
 
 No `build`, `dev`, `start`, or `test` scripts are defined yet.
