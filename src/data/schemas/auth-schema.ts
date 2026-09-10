@@ -8,7 +8,11 @@ export const user = pgTable("user", {
  emailVerified: boolean('email_verified').default(false).notNull(),
  image: text('image'),
  createdAt: timestamp('created_at').defaultNow().notNull(),
- updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => /* @__PURE__ */ new Date()).notNull()
+ updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => /* @__PURE__ */ new Date()).notNull(),
+ role: text('role'),
+ banned: boolean('banned').default(false),
+ banReason: text('ban_reason'),
+ banExpires: timestamp('ban_expires')
 					});
 
 export const session = pgTable("session", {
@@ -19,7 +23,8 @@ export const session = pgTable("session", {
  updatedAt: timestamp('updated_at').$onUpdate(() => /* @__PURE__ */ new Date()).notNull(),
  ipAddress: text('ip_address'),
  userAgent: text('user_agent'),
- userId: text('user_id').notNull().references(()=> user.id, { onDelete: 'cascade' })
+ userId: text('user_id').notNull().references(()=> user.id, { onDelete: 'cascade' }),
+ impersonatedBy: text('impersonated_by')
 					}, (table) => [
   index("session_userId_idx").on(table.userId),
 ]);
@@ -55,8 +60,18 @@ export const verification = pgTable("verification", {
   index("verification_identifier_idx").on(table.identifier),
 ]);
 
+export const jwks = pgTable("jwks", {
+					id: text('id').primaryKey(),
+					publicKey: text('public_key').notNull(),
+ privateKey: text('private_key').notNull(),
+ createdAt: timestamp('created_at').notNull(),
+ expiresAt: timestamp('expires_at'),
+ alg: text('alg'),
+ crv: text('crv')
+					});
 
-export const authRelations = defineRelationsPart({ user, session, account, verification }, (r) => ({
+
+export const authRelations = defineRelationsPart({ user, session, account, verification, jwks }, (r) => ({
   user: {
     sessions: r.many.session({
       from: r.user.id,
