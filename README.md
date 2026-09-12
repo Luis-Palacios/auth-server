@@ -22,11 +22,8 @@ Early-stage scaffold — no server entrypoint, database, or routes wired up yet.
 - **Better Auth** — authentication
 - **Biome** — linting and formatting
 - **pnpm** — package manager
+- **hono** - mount handler
 
-### Planned
-
-- **Drizzle** — ORM / database layer
-- **Better Auth UI** — pre-built auth UI components
 
 ## Getting started
 
@@ -60,7 +57,10 @@ pnpm drizzle-kit migrate # run migrations
 
 pnpm dlx auth@latest generate # generate auth-migrations
 
+pnpm dlx auth@latest create-admin --email admin@example.com --name "Admin" --role admin # create admin user, password will be asked
+
 bun .\src\data\seed.ts # seed database
+bun .\src\index.ts # run the hono api
 ```
 
 No `build`, `dev`, `start`, or `test` scripts are defined yet.

@@ -3,10 +3,12 @@ import { type BetterAuthOptions, betterAuth } from 'better-auth';
 import { jwt } from 'better-auth/plugins';
 import { admin } from 'better-auth/plugins/admin';
 import { db } from '../data/database.js';
+import * as schema from '../data/schemas/auth-schema.js';
 
 const authConfig: BetterAuthOptions = {
 	database: drizzleAdapter(db, {
 		provider: 'pg',
+		schema: schema,
 	}),
 	emailAndPassword: {
 		enabled: true,
