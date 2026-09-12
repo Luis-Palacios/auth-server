@@ -5,7 +5,10 @@ Standalone authentication service for the `members-management` project, built on
 
 ## Status
 
-Early-stage scaffold — no server entrypoint, database, or routes wired up yet.
+Early-stage but running: a Hono app mounts the Better Auth handler at `/api/auth/*`, backed by
+a Drizzle/PostgreSQL database, with the `admin`, `jwt`, and `openAPI` (interactive docs) plugins
+enabled. No `build`, `dev`, `start`, or `test` scripts yet, and the port is hardcoded rather than
+read from `BETTER_AUTH_URL`.
 
 ## Prerequisites
 
@@ -19,10 +22,11 @@ Early-stage scaffold — no server entrypoint, database, or routes wired up yet.
 ## Tech stack
 
 - **TypeScript** — strict mode, ESM (`nodenext`)
-- **Better Auth** — authentication
+- **Better Auth** — authentication, with the `admin`, `jwt`, and `openAPI` plugins enabled
+- **Hono** — API mount handler, served via `@hono/node-server`
+- **Drizzle ORM** — PostgreSQL database layer
 - **Biome** — linting and formatting
 - **pnpm** — package manager
-- **hono** - mount handler
 
 
 ## Getting started
@@ -64,3 +68,12 @@ bun .\src\index.ts # run the hono api
 ```
 
 No `build`, `dev`, `start`, or `test` scripts are defined yet.
+
+## API
+
+Running `bun .\src\index.ts` starts a Hono server (port 5000) with all Better Auth routes
+mounted under `/api/auth/*`. Notable endpoints:
+
+- `/api/auth/*` — Better Auth's own routes (sign-up, sign-in, sessions, admin endpoints, etc.)
+- `/api/auth/.well-known/jwks.json` — JWKS endpoint from the `jwt` plugin
+- `/api/auth/reference` — interactive OpenAPI docs from the `openAPI` plugin
