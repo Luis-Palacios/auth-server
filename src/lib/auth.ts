@@ -5,10 +5,11 @@ import { admin as adminPlugin } from 'better-auth/plugins/admin';
 import { db } from '../data/database.js';
 import * as schema from '../data/schemas/auth-schema.js';
 import { accessControl, admin, deacon, smallGroupLeader, user } from '../permissions/statements.js';
-import { corsOrigins } from './cors.js';
+import { config } from './config.js';
 
 const authConfig: BetterAuthOptions = {
-	trustedOrigins: corsOrigins,
+	secret: config.betterAuthSecret,
+	trustedOrigins: config.corsOrigins,
 	database: drizzleAdapter(db, {
 		provider: 'pg',
 		schema: schema,
