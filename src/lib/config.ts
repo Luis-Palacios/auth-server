@@ -6,6 +6,9 @@ const envSchema = z.object({
 	BETTER_AUTH_URL: z.url('BETTER_AUTH_URL must be a valid URL (see .env.example)'),
 	CORS_ORIGINS: z.string().min(1, 'CORS_ORIGINS must be set (see .env.example)'),
 	DATABASE_URL: z.string().min(1, 'DATABASE_URL must be set (see .env.example)'),
+	DB_POOL_MAX: z.coerce.number().int().positive().default(10),
+	DB_IDLE_TIMEOUT_MS: z.coerce.number().int().nonnegative().default(10_000),
+	DB_CONNECTION_TIMEOUT_MS: z.coerce.number().int().nonnegative().default(5_000),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
@@ -33,4 +36,7 @@ export const config = {
 	port,
 	corsOrigins,
 	databaseUrl: env.DATABASE_URL,
+	dbPoolMax: env.DB_POOL_MAX,
+	dbIdleTimeoutMs: env.DB_IDLE_TIMEOUT_MS,
+	dbConnectionTimeoutMs: env.DB_CONNECTION_TIMEOUT_MS,
 } as const;
