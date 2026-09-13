@@ -17,6 +17,17 @@ const envSchema = z
 		REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
 		HEADERS_TIMEOUT_MS: z.coerce.number().int().positive().default(20_000),
 		KEEP_ALIVE_TIMEOUT_MS: z.coerce.number().int().positive().default(5_000),
+		RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().positive().default(10),
+		RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
+		// Whether to trust an inbound X-Forwarded-For header as-is (only safe once a real reverse
+		// proxy sits in front of this service and overwrites that header itself) - see
+		// src/index.ts, where this gates the client-IP normalization used for rate limiting.
+		// z.coerce.boolean() is deliberately not used here: Boolean("false") is true in JS, so it
+		// would coerce the literal string "false" to true.
+		TRUST_PROXY: z
+			.enum(['true', 'false'])
+			.default('false')
+			.transform((value) => value === 'true'),
 	})
 	.refine((data) => data.HEADERS_TIMEOUT_MS <= data.REQUEST_TIMEOUT_MS, {
 		message: 'HEADERS_TIMEOUT_MS must be <= REQUEST_TIMEOUT_MS (headers are part of the full request)',
@@ -61,4 +72,7 @@ export const config = {
 	requestTimeoutMs: env.REQUEST_TIMEOUT_MS,
 	headersTimeoutMs: env.HEADERS_TIMEOUT_MS,
 	keepAliveTimeoutMs: env.KEEP_ALIVE_TIMEOUT_MS,
+	rateLimitWindowSeconds: env.RATE_LIMIT_WINDOW_SECONDS,
+	rateLimitMax: env.RATE_LIMIT_MAX,
+	trustProxy: env.TRUST_PROXY,
 } as const;

@@ -1,32 +1,33 @@
-import { serve } from '@hono/node-server';
-import { sql } from 'drizzle-orm';
-import { Hono } from 'hono';
+import { type HttpBindings, serve } from '@hono/node-server';
+import { type Context, Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { db, pool } from './data/database.js';
 import { auth } from './lib/auth.js'; // path to your auth file
 import { config } from './lib/config.js';
+import { healthRoute } from './routes/health.js';
 
-const app = new Hono();
+const app = new Hono<{ Bindings: HttpBindings }>();
 app.use('*', cors({ origin: config.corsOrigins, credentials: true }));
-app.get('/health', async (c) => {
-	// Read pool stats after the query, not before: totalCount/idleCount only reflect the
-	// connection this check itself just used (or attempted) once the await settles.
-	const poolStatus = () => ({
-		total: pool.totalCount,
-		idle: pool.idleCount,
-		waiting: pool.waitingCount,
-		max: config.dbPoolMax,
-	});
+app.route('/health', healthRoute);
+app.on(['POST', 'GET'], '/api/auth/*', (c) => auth.handler(resolveAuthRequest(c)));
 
-	try {
-		await db.execute(sql`select 1`);
-		return c.json({ status: 'ok', db: 'up', pool: poolStatus() });
-	} catch (error) {
-		console.error('Health check: DB query failed', error);
-		return c.json({ status: 'error', db: 'down', pool: poolStatus() }, 503);
+// better-auth's rate limiter keys requests by IP, trusting a single-value X-Forwarded-For
+// header unconditionally (see @better-auth/core's getIP()). Since nothing sits in front of
+// this service yet, a client connecting directly could set that header to a new value on every
+// request and bypass rate limiting entirely. Until TRUST_PROXY=true (once a real reverse proxy
+// is in place to set/overwrite this header itself before we see it), we overwrite it here with
+// the real TCP peer address so it reflects who actually connected to us.
+function resolveAuthRequest(c: Context<{ Bindings: HttpBindings }>): Request {
+	if (config.trustProxy) return c.req.raw;
+
+	const headers = new Headers(c.req.raw.headers);
+	const remoteAddress = c.env.incoming.socket.remoteAddress;
+	if (remoteAddress) {
+		headers.set('x-forwarded-for', remoteAddress);
+	} else {
+		headers.delete('x-forwarded-for');
 	}
-});
-app.on(['POST', 'GET'], '/api/auth/*', (c) => auth.handler(c.req.raw));
+	return new Request(c.req.raw, { headers });
+}
 console.log('Server is starting...');
 
 serve(

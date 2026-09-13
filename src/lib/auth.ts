@@ -17,6 +17,15 @@ const authConfig: BetterAuthOptions = {
 	emailAndPassword: {
 		enabled: true,
 	},
+	// `enabled` is left unset so it falls through to better-auth's own default (on iff
+	// NODE_ENV=production - see config.nodeEnv). window/max here only set the *general* limit;
+	// better-auth already applies its own tighter built-in rules to sign-in/sign-up/password-reset
+	// regardless of these values (3 requests per 10-60s - see its rate-limiter source), so no
+	// customRules are needed for the brute-force-prone endpoints specifically.
+	rateLimit: {
+		window: config.rateLimitWindowSeconds,
+		max: config.rateLimitMax,
+	},
 	plugins: [
 		adminPlugin({
 			ac: accessControl,
