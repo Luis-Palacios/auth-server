@@ -27,7 +27,12 @@ Status markers: `[ ]` not started, `[~]` in progress, `[x]` done.
 basic status info, and (once Phase 3 exists) checks the DB connection is alive. Update: now
 that Phase 3's pool exists, `/health` runs `select 1` through it and reports `db: 'up'|'down'`
 (503 on failure) plus pool stats (`total`/`idle`/`waiting`/`max` connections) so you can see
-pool pressure without a separate metrics system.
+pool pressure without a separate metrics system. Update: the route lives in
+`src/routes/health.ts` now (moved out of `src/index.ts`), and the `select 1` is debounced to a
+one-per-second cache with in-flight de-duplication — otherwise a burst/flood of `/health` calls
+would translate 1:1 into DB queries competing with real traffic for the pool, and per-IP rate
+limiting (Phase 5) is the wrong tool here since Docker/an orchestrator needs this endpoint to
+reliably return `200` on every poll, not occasionally get `429`'d.
 
 **Why:** Docker's `HEALTHCHECK`, and any orchestrator/load balancer later, needs a cheap way
 to ask "is this instance actually working?" Without it, Docker only knows the process is
@@ -114,12 +119,30 @@ enforces `KEEP_ALIVE_TIMEOUT_MS < HEADERS_TIMEOUT_MS <= REQUEST_TIMEOUT_MS` (see
 ---
 
 ## Phase 5 — Rate limiting
-`[ ]`
+`[x]`
 
 **What:** better-auth actually ships built-in rate limiting (a `rateLimit` option on
 `betterAuth(...)`) — we should look at that first before reaching for a separate Hono
 middleware or external service. Decide what needs limiting beyond auth routes themselves
-(there currently are none — everything goes through `/api/auth/*`).
+(there currently are none — everything goes through `/api/auth/*`). Update: better-auth
+already special-cases the brute-force-prone endpoints for us (checked its source directly) —
+`/sign-in`, `/sign-up`, `/change-password`, `/change-email` get 3 requests/10s, and
+`/request-password-reset`/`/forget-password`/verification-email endpoints get 3 requests/60s,
+regardless of the general `window`/`max` set below. So `rateLimit: { window, max }` in
+`src/lib/auth.ts` only tunes the general-purpose limit; no `customRules` were needed.
+
+Also found and fixed a real gap while implementing this: better-auth keys its rate limiter by
+`X-Forwarded-For`, trusting a single-value header unconditionally with no reverse proxy in the
+loop yet — meaning a direct client could set a fresh `X-Forwarded-For` on every request and
+bypass rate limiting entirely (verified this both ways: confirmed the bypass, then confirmed
+the fix closes it). `src/index.ts` now overwrites that header with the real TCP peer address
+before better-auth sees the request, gated by `TRUST_PROXY` (default `false`); flip that to
+`true` only once a real reverse proxy exists in front of this service and sets that header
+itself.
+
+Storage is left at better-auth's default (`memory`) for now — fine for a single container,
+but each replica would keep an independent counter, so this needs `storage: "database"` (a new
+`rateLimit` table + migration) before running more than one replica.
 
 **Why:** Auth endpoints (login, password reset, signup) are the classic brute-force/credential
 -stuffing target. This is security, not just resilience.
@@ -128,7 +151,9 @@ middleware or external service. Decide what needs limiting beyond auth routes th
 store — matters once you run more than one container replica), fixed-window vs sliding-window
 limiting.
 
-**New env vars:** depends on what better-auth's config exposes — TBD.
+**New env vars:** `RATE_LIMIT_WINDOW_SECONDS` (default `10`), `RATE_LIMIT_MAX` (default `100`),
+`TRUST_PROXY` (default `false`, see above). Whether rate limiting is enabled at all follows
+`NODE_ENV` (better-auth's own default: on only when `NODE_ENV=production`).
 
 ---
 
