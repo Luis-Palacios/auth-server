@@ -3,6 +3,10 @@ import { z } from 'zod';
 
 const envSchema = z
 	.object({
+		// Standard Node convention, defaulting the way Node itself does when unset. better-auth
+		// reads this directly (not through our config object) to decide things like whether rate
+		// limiting is on by default and its dev-mode IP fallback - see src/lib/auth.ts.
+		NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 		BETTER_AUTH_SECRET: z.string().min(1, 'BETTER_AUTH_SECRET must be set (see .env.example)'),
 		BETTER_AUTH_URL: z.url('BETTER_AUTH_URL must be a valid URL (see .env.example)'),
 		CORS_ORIGINS: z.string().min(1, 'CORS_ORIGINS must be set (see .env.example)'),
@@ -44,6 +48,8 @@ const corsOrigins = env.CORS_ORIGINS.split(',')
 	.filter(Boolean);
 
 export const config = {
+	nodeEnv: env.NODE_ENV,
+	isProduction: env.NODE_ENV === 'production',
 	betterAuthSecret: env.BETTER_AUTH_SECRET,
 	betterAuthUrl,
 	port,
