@@ -5,10 +5,11 @@ Standalone authentication service for the `members-management` project, built on
 
 ## Status
 
-Early-stage but running: a Hono app mounts the Better Auth handler at `/api/auth/*`, backed by
-a Drizzle/PostgreSQL database, with the `admin`, `jwt`, and `openAPI` (interactive docs) plugins
-enabled. No `build`, `dev`, `start`, or `test` scripts yet, and the port is hardcoded rather than
-read from `BETTER_AUTH_URL`.
+Early-stage but running: a Hono app mounts the Better Auth handler at `/api/auth/*` and a
+`/health` route, backed by a Drizzle/PostgreSQL database, with the `admin`, `jwt`, and `openAPI`
+(interactive docs) plugins plus built-in rate limiting enabled. No `build`, `dev`, `start`, or
+`test` scripts yet. See [`ROADMAP.md`](./ROADMAP.md) for the in-progress production-readiness
+hardening work (connection pooling, HTTP timeouts, rate limiting, etc.).
 
 ## Prerequisites
 
@@ -22,9 +23,10 @@ read from `BETTER_AUTH_URL`.
 ## Tech stack
 
 - **TypeScript** — strict mode, ESM (`nodenext`)
-- **Better Auth** — authentication, with the `admin`, `jwt`, and `openAPI` plugins enabled
+- **Better Auth** — authentication, with the `admin`, `jwt`, `openAPI` plugins and built-in rate limiting enabled
 - **Hono** — API mount handler, served via `@hono/node-server`
 - **Drizzle ORM** — PostgreSQL database layer
+- **Zod** — environment variable validation (`src/lib/config.ts`)
 - **Biome** — linting and formatting
 - **pnpm** — package manager
 
@@ -64,17 +66,20 @@ pnpm dlx auth@latest generate # generate auth-migrations
 
 pnpm dlx auth@latest create-admin --email admin@example.com --name "Admin" --role admin # create admin user, password will be asked
 
-bun .\src\data\seed.ts # seed database
-bun .\src\index.ts # run the hono api
+bun ./src/data/seed.ts # seed database
+bun ./src/index.ts     # run the Hono API
 ```
 
 No `build`, `dev`, `start`, or `test` scripts are defined yet.
 
 ## API
 
-Running `bun .\src\index.ts` starts a Hono server (port 5000) with all Better Auth routes
-mounted under `/api/auth/*`. Notable endpoints:
+Running `bun ./src/index.ts` starts a Hono server (port derived from `BETTER_AUTH_URL`, default
+`5000`) with all Better Auth routes mounted under `/api/auth/*`. Notable endpoints:
 
 - `/api/auth/*` — Better Auth's own routes (sign-up, sign-in, sessions, admin endpoints, etc.)
 - `/api/auth/.well-known/jwks.json` — JWKS endpoint from the `jwt` plugin
 - `/api/auth/reference` — interactive OpenAPI docs from the `openAPI` plugin
+- `/health` — liveness/readiness check: runs a debounced query through the DB pool and reports
+  `db: 'up'|'down'` (503 on failure) plus pool stats; intended for Docker's `HEALTHCHECK` and any
+  future load balancer/orchestrator
