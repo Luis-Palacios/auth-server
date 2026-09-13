@@ -41,12 +41,12 @@ serve traffic) in container land.
 ## Phase 2 — Centralized, validated env config
 `[x]`
 
-**What:** Right now every file that needs an env var does its own
-`if (!process.env.X) throw ...` (see `src/lib/cors.ts`, `src/index.ts`). Before we add a
-handful of *new* env vars in the phases below (pool size, timeouts, rate limits — all
-numbers/booleans, not just strings), consolidate parsing/validation into one `src/config.ts`
-(or similar) that reads `process.env` once, validates types/ranges, and exports a typed
-`config` object.
+**What:** ~~Every file that needs an env var did its own `if (!process.env.X) throw ...`~~ —
+done: consolidated into `src/lib/config.ts`, which reads `process.env` once, validates it with
+a `zod` schema, and exports a typed `config` object. `src/lib/cors.ts` (the old home of the
+`CORS_ORIGINS` parsing) was deleted since its logic moved in. Before we add a handful of *new*
+env vars in the phases below (pool size, timeouts, rate limits — all numbers/booleans, not just
+strings), this gives every future phase one consistent place to add validation.
 
 **Why:** Two reasons. (1) Parsing `"30000"` into a number and getting it wrong is an easy,
 silent bug — do it once, correctly, in one place. (2) You've got `strict` +
@@ -55,8 +55,8 @@ object gets you compile-time safety everywhere else in the app instead of `proce
 sprinkled around.
 
 **New concepts:** fail-fast startup validation, why `process.env` values are always
-`string | undefined` in TS, (optionally) using a small schema library like `zod` to validate
-env vars declaratively instead of hand-rolled `if` checks.
+`string | undefined` in TS, using `zod` to validate env vars declaratively (one schema,
+all errors reported together) instead of hand-rolled `if` checks.
 
 **New env vars:** none new, but existing ones move into the new module.
 
