@@ -5,9 +5,9 @@ import { auth } from './lib/auth.js'; // path to your auth file
 import { config } from './lib/config.js';
 
 const app = new Hono();
+app.use('*', cors({ origin: config.corsOrigins, credentials: true }));
 app.get('/health', (c) => c.json({ status: 'ok' }));
 app.on(['POST', 'GET'], '/api/auth/*', (c) => auth.handler(c.req.raw));
-app.use('*', cors({ origin: config.corsOrigins, credentials: true }));
 console.log('Server is starting...');
 
 serve(
