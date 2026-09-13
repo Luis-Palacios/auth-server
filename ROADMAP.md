@@ -24,7 +24,10 @@ Status markers: `[ ]` not started, `[~]` in progress, `[x]` done.
 `[x]`
 
 **What:** Add a `GET /health` (or `/healthz`) route on the Hono app that returns 200 with
-basic status info, and (once Phase 3 exists) checks the DB connection is alive.
+basic status info, and (once Phase 3 exists) checks the DB connection is alive. Update: now
+that Phase 3's pool exists, `/health` runs `select 1` through it and reports `db: 'up'|'down'`
+(503 on failure) plus pool stats (`total`/`idle`/`waiting`/`max` connections) so you can see
+pool pressure without a separate metrics system.
 
 **Why:** Docker's `HEALTHCHECK`, and any orchestrator/load balancer later, needs a cheap way
 to ask "is this instance actually working?" Without it, Docker only knows the process is
@@ -63,7 +66,7 @@ all errors reported together) instead of hand-rolled `if` checks.
 ---
 
 ## Phase 3 — Database connection pooling
-`[ ]`
+`[x]`
 
 **What:** `src/data/database.ts` currently does `drizzle(process.env.DATABASE_URL!)` with
 zero pool configuration — it's using node-postgres's default pool (default max 10 clients,
@@ -78,8 +81,11 @@ the pool can hold dead connections and requests hang instead of failing fast.
 request, how `pg.Pool` options map through Drizzle, the tradeoff between pool size and your
 Postgres server's `max_connections`.
 
-**New env vars:** `DB_POOL_MAX`, `DB_IDLE_TIMEOUT_MS`, `DB_CONNECTION_TIMEOUT_MS` (exact
-names TBD when we get there).
+**New env vars:** `DB_POOL_MAX` (default `10`, matches node-postgres's own default),
+`DB_IDLE_TIMEOUT_MS` (default `10000`, matches node-postgres's own default),
+`DB_CONNECTION_TIMEOUT_MS` (default `5000` - node-postgres itself defaults to no timeout at
+all here, so this is a deliberate change in behavior, not just documenting the status quo).
+All three are optional with these defaults.
 
 ---
 
