@@ -28,7 +28,6 @@ read from `BETTER_AUTH_URL`.
 - **Biome** — linting and formatting
 - **pnpm** — package manager
 
-
 ## Getting started
 
 ```bash
@@ -42,9 +41,11 @@ cp .env.example .env
 ```
 
 - `BETTER_AUTH_SECRET` — at least 32 characters, high entropy. Generate one with:
+
   ```bash
   openssl rand -base64 32
   ```
+
 - `BETTER_AUTH_URL` — the URL this service will run on (defaults to `http://localhost:5000`)
 
 ## Scripts
