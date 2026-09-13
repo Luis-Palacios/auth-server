@@ -36,6 +36,17 @@ serve(
 		// Bind all interfaces so Docker's port mapping can reach the process,
 		// regardless of the hostname advertised in BETTER_AUTH_URL.
 		hostname: '0.0.0.0',
+		// Bounds on the raw HTTP connection, independent of anything happening inside a
+		// handler (e.g. a slow DB call - see Phase 3's DB_CONNECTION_TIMEOUT_MS for that).
+		// Protects against a client that opens a connection and sends data slowly/never
+		// finishes. keepAliveTimeoutMs in particular should be raised above the idle
+		// timeout of any reverse proxy/load balancer put in front of this service, or the
+		// proxy can race this server's socket close when reusing a keep-alive connection.
+		serverOptions: {
+			requestTimeout: config.requestTimeoutMs,
+			headersTimeout: config.headersTimeoutMs,
+			keepAliveTimeout: config.keepAliveTimeoutMs,
+		},
 	},
 	(info) => {
 		console.log(`Server is running on ${config.betterAuthUrl.origin} (listening on 0.0.0.0:${info.port})`);

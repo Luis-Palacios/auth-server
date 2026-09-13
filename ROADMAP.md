@@ -90,7 +90,7 @@ All three are optional with these defaults.
 ---
 
 ## Phase 4 — HTTP server & request timeouts
-`[ ]`
+`[x]`
 
 **What:** Configure timeouts on the underlying Node HTTP server that `@hono/node-server`
 starts (`serve()` in `src/index.ts`) — things like `requestTimeout`, `headersTimeout`,
@@ -105,7 +105,11 @@ proxy's own timeout to avoid race conditions on connection reuse).
 "the HTTP connection itself is slow/stuck" (this phase), how Node's `http.Server` timeout
 options interact with each other.
 
-**New env vars:** `REQUEST_TIMEOUT_MS`, `KEEP_ALIVE_TIMEOUT_MS` (naming TBD).
+**New env vars:** `REQUEST_TIMEOUT_MS` (default `30000`), `HEADERS_TIMEOUT_MS` (default
+`20000`), `KEEP_ALIVE_TIMEOUT_MS` (default `5000`, matches Node's own default - raise this
+above a reverse proxy's idle timeout once one exists). All optional. Startup validation
+enforces `KEEP_ALIVE_TIMEOUT_MS < HEADERS_TIMEOUT_MS <= REQUEST_TIMEOUT_MS` (see
+`src/lib/config.ts`), since these three only make sense relative to each other.
 
 ---
 
