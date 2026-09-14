@@ -4,7 +4,7 @@ import { jwt, openAPI } from 'better-auth/plugins';
 import { admin as adminPlugin } from 'better-auth/plugins/admin';
 import { db } from '../data/database.js';
 import * as schema from '../data/schemas/auth-schema.js';
-import { accessControl, admin, deacon, smallGroupLeader, user } from '../permissions/statements.js';
+import { accessControl, admin, deacon, pending, smallGroupLeader, user } from '../permissions/statements.js';
 import { config } from './config.js';
 
 const authConfig: BetterAuthOptions = {
@@ -34,7 +34,13 @@ const authConfig: BetterAuthOptions = {
 				user,
 				smallGroupLeader,
 				deacon,
+				pending,
 			},
+			// better-auth's own default is "user" — we override it because `user`'s statements
+			// (see src/permissions/statements.ts) grant full CRUD on every custom resource, same
+			// as admin minus adminAc. A freshly signed-up account should have no access at all
+			// until an admin assigns a real role.
+			defaultRole: 'pending',
 		}),
 		jwt({
 			disableSettingJwtHeader: true,

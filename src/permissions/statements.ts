@@ -11,6 +11,11 @@ const statement = {
 
 export const accessControl = createAccessControl(statement);
 
+// No statements spread in — this role grants no permissions on anything. It's the admin
+// plugin's `defaultRole` (see src/lib/auth.ts), so a freshly signed-up account can authenticate
+// but can't do anything until an admin assigns a real role.
+export const pending = accessControl.newRole({});
+
 export const admin = accessControl.newRole({
     ...statement,
     ...adminAc.statements, 
