@@ -46,6 +46,14 @@ const authConfig: BetterAuthOptions = {
 			jwks: {
 				jwksPath: '/.well-known/jwks.json',
 			},
+			jwt: {
+				// Only `role` goes in the payload (see AUTH-INTEGRATION-ROADMAP.md's Phase 4/"Role vs
+				// permission" notes) - not the full user row, which is definePayload's default when
+				// unset (verified live: it was leaking name/email/ban status/etc. before this change).
+				// `sub` (user id) is set separately by better-auth itself, so it doesn't need to be
+				// returned here.
+				definePayload: ({ user }) => ({ role: user.role }),
+			},
 		}),
 		openAPI(),
 	],
