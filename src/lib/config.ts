@@ -28,6 +28,9 @@ const envSchema = z
 			.enum(['true', 'false'])
 			.default('false')
 			.transform((value) => value === 'true'),
+		RESEND_API_KEY: z.string().min(1, 'RESEND_API_KEY must be set (see .env.example)'),
+		RESEND_FROM_EMAIL: z.string().min(1, 'RESEND_FROM_EMAIL must be set (see .env.example)'),
+		
 	})
 	.refine((data) => data.HEADERS_TIMEOUT_MS <= data.REQUEST_TIMEOUT_MS, {
 		message: 'HEADERS_TIMEOUT_MS must be <= REQUEST_TIMEOUT_MS (headers are part of the full request)',
@@ -75,4 +78,6 @@ export const config = {
 	rateLimitWindowSeconds: env.RATE_LIMIT_WINDOW_SECONDS,
 	rateLimitMax: env.RATE_LIMIT_MAX,
 	trustProxy: env.TRUST_PROXY,
+	resendApiKey: env.RESEND_API_KEY,
+	resendFromEmail: env.RESEND_FROM_EMAIL,
 } as const;

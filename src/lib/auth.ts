@@ -2,10 +2,13 @@ import { drizzleAdapter } from '@better-auth/drizzle-adapter/relations-v2';
 import { type BetterAuthOptions, betterAuth } from 'better-auth';
 import { jwt, openAPI } from 'better-auth/plugins';
 import { admin as adminPlugin } from 'better-auth/plugins/admin';
+import { Resend } from 'resend';
 import { db } from '../data/database.js';
 import * as schema from '../data/schemas/auth-schema.js';
 import { accessControl, admin, deacon, elder, pending, smallGroupLeader, user } from '../permissions/statements.js';
 import { config } from './config.js';
+
+const resend = new Resend(config.resendApiKey);
 
 const authConfig: BetterAuthOptions = {
 	secret: config.betterAuthSecret,
@@ -16,6 +19,27 @@ const authConfig: BetterAuthOptions = {
 	}),
 	emailAndPassword: {
 		enabled: true,
+		requireEmailVerification: true,
+		sendResetPassword: async ({ user, url }) => {
+			void resend.emails.send({
+				from: `Ekklesiaio <${config.resendFromEmail}>`,
+				to: user.email,
+				subject: 'Reset your password',
+				html: `Click the link to reset your password: ${url}`,
+			});
+		},
+	},
+	emailVerification:{
+		sendOnSignUp: true,
+		autoSignInAfterVerification: true,
+		sendVerificationEmail: async ({ user, url }) => {
+			void resend.emails.send({
+				from: `Ekklesiaio <${config.resendFromEmail}>`,
+				to: user.email,
+				subject: 'Verify your email address',
+				html: `<p>Please verify your email by clicking <a href="${url}">here</a>.</p>`,
+			});
+		}
 	},
 	// `enabled` is left unset so it falls through to better-auth's own default (on iff
 	// NODE_ENV=production - see config.nodeEnv). window/max here only set the *general* limit;
