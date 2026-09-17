@@ -37,7 +37,12 @@ const authConfig: BetterAuthOptions = {
 				from: `Ekklesiaio <${config.resendFromEmail}>`,
 				to: user.email,
 				subject: 'Verify your email address',
-				html: `<p>Please verify your email by clicking <a href="${url}">here</a>.</p>`,
+				template: {
+					id: 'verify-email',
+					variables: {
+						verificationUrl: url,
+					},
+				}
 			});
 		}
 	},
