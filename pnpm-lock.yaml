@@ -118,6 +118,9 @@ importers:
       better-auth:
         specifier: ^1.7.2
         version: 1.7.2(drizzle-kit@1.0.0-rc.4)(drizzle-orm@1.0.0-rc.4(@types/pg@8.23.1)(pg@8.23.0)(zod@4.6.2))(pg@8.23.0)
+      better-invite:
+        specifier: ^0.5.7
+        version: 0.5.7(better-auth@1.7.2(drizzle-kit@1.0.0-rc.4)(drizzle-orm@1.0.0-rc.4(@types/pg@8.23.1)(pg@8.23.0)(zod@4.6.2))(pg@8.23.0))
       dotenv:
         specifier: ^17.4.2
         version: 17.4.2
@@ -836,6 +839,11 @@ packages:
       zod:
         optional: true
 
+  better-invite@0.5.7:
+    resolution: {integrity: sha512-7oxtGUcMBUGdhPQhDud4FbZmS4OtGsAszv0/TzyLA+2LSEsrnh9siUhi/pOX9i+F5+n9eu1Yht2iX0G+3HbRyg==}
+    peerDependencies:
+      better-auth: ^1.6.11
+
   defu@6.1.7:
     resolution: {integrity: sha512-7z22QmUWiQ/2d0KkdYmANbRUVABpZ9SNYyH5vx6PZ+nE5bcC0l7uFvEfHlyld/HcGBFTL536ClDt3DEcSlEJAQ==}
 
@@ -1508,6 +1516,12 @@ snapshots:
       rou3: 0.9.2
       set-cookie-parser: 3.1.2
     optionalDependencies:
+      zod: 4.6.2
+
+  better-invite@0.5.7(better-auth@1.7.2(drizzle-kit@1.0.0-rc.4)(drizzle-orm@1.0.0-rc.4(@types/pg@8.23.1)(pg@8.23.0)(zod@4.6.2))(pg@8.23.0)):
+    dependencies:
+      '@better-auth/utils': 0.4.2
+      better-auth: 1.7.2(drizzle-kit@1.0.0-rc.4)(drizzle-orm@1.0.0-rc.4(@types/pg@8.23.1)(pg@8.23.0)(zod@4.6.2))(pg@8.23.0)
       zod: 4.6.2
 
   defu@6.1.7: {}

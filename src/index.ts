@@ -3,11 +3,13 @@ import { type Context, Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { auth } from './lib/auth.js'; // path to your auth file
 import { config } from './lib/config.js';
+import { customAuthRoute } from './routes/custom-auth/index.js';
 import { healthRoute } from './routes/health.js';
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 app.use('*', cors({ origin: config.corsOrigins, credentials: true }));
 app.route('/health', healthRoute);
+app.route('/api/custom-auth', customAuthRoute);
 app.on(['POST', 'GET'], '/api/auth/*', (c) => auth.handler(resolveAuthRequest(c)));
 
 // better-auth's rate limiter keys requests by IP, trusting a single-value X-Forwarded-For

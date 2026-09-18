@@ -1,5 +1,5 @@
 import { defineRelationsPart } from "drizzle-orm";
-import { boolean, index, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { boolean, index, integer, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
 					id: text('id').primaryKey(),
@@ -60,6 +60,30 @@ export const verification = pgTable("verification", {
   index("verification_identifier_idx").on(table.identifier),
 ]);
 
+export const invite = pgTable("invite", {
+					id: text('id').primaryKey(),
+					token: text('token').unique(),
+ createdAt: timestamp('created_at'),
+ expiresAt: timestamp('expires_at').notNull(),
+ maxUses: integer('max_uses').notNull(),
+ infinityMaxUses: boolean('infinity_max_uses').default(false).notNull(),
+ createdByUserId: text('created_by_user_id').references(()=> user.id, { onDelete: 'set null' }),
+ redirectToAfterUpgrade: text('redirect_to_after_upgrade'),
+ shareInviterName: boolean('share_inviter_name').notNull(),
+ email: text('email'),
+ emails: text('emails').array(),
+ role: text('role').notNull(),
+ newAccount: boolean('new_account'),
+ status: text('status', { enum: ['pending', 'rejected', 'canceled', 'used'] }).notNull()
+					});
+
+export const inviteUse = pgTable("invite_use", {
+					id: text('id').primaryKey(),
+					inviteId: text('invite_id').notNull().references(()=> invite.id, { onDelete: 'set null' }),
+ usedAt: timestamp('used_at').notNull(),
+ usedByUserId: text('used_by_user_id').references(()=> user.id, { onDelete: 'set null' })
+					});
+
 export const jwks = pgTable("jwks", {
 					id: text('id').primaryKey(),
 					publicKey: text('public_key').notNull(),
@@ -71,7 +95,7 @@ export const jwks = pgTable("jwks", {
 					});
 
 
-export const authRelations = defineRelationsPart({ user, session, account, verification, jwks }, (r) => ({
+export const authRelations = defineRelationsPart({ user, session, account, verification, invite, inviteUse, jwks }, (r) => ({
   user: {
     sessions: r.many.session({
       from: r.user.id,
@@ -80,6 +104,14 @@ export const authRelations = defineRelationsPart({ user, session, account, verif
     accounts: r.many.account({
       from: r.user.id,
       to: r.account.userId,
+    }),
+    invites: r.many.invite({
+      from: r.user.id,
+      to: r.invite.createdByUserId,
+    }),
+    inviteUses: r.many.inviteUse({
+      from: r.user.id,
+      to: r.inviteUse.usedByUserId,
     })
   },
   session: {
@@ -91,6 +123,26 @@ export const authRelations = defineRelationsPart({ user, session, account, verif
   account: {
     user: r.one.user({
       from: r.account.userId,
+      to: r.user.id,
+    })
+  },
+  invite: {
+    user: r.one.user({
+      from: r.invite.createdByUserId,
+      to: r.user.id,
+    }),
+    inviteUses: r.many.inviteUse({
+      from: r.invite.id,
+      to: r.inviteUse.inviteId,
+    })
+  },
+  inviteUse: {
+    invite: r.one.invite({
+      from: r.inviteUse.inviteId,
+      to: r.invite.id,
+    }),
+    user: r.one.user({
+      from: r.inviteUse.usedByUserId,
       to: r.user.id,
     })
   }

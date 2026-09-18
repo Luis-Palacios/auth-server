@@ -59,10 +59,12 @@ pnpm exec biome format --write .  # format only
 pnpm exec tsc --noEmit            # type-check
 pnpm exec tsx src/lib/auth.ts     # run a TS file directly during development
 
+pnpm dlx auth@latest generate # generate better-auth schemas
+## Move auth-schemas to ./src/data/schemas then:
 pnpm drizzle-kit generate   # generate migrations
 pnpm drizzle-kit migrate # run migrations
 
-pnpm dlx auth@latest generate # generate auth-migrations
+
 
 pnpm dlx auth@latest create-admin --email admin@example.com --name "Admin" --role admin # create admin user, password will be asked
 
