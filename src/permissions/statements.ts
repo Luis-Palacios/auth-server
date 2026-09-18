@@ -11,6 +11,7 @@ const statement = {
 	membershipApplications: ['create', 'view', 'update', 'delete', 'approve', 'reject'],
 	smallGroups: ['create', 'view', 'update', 'delete'],
 	smallGroupsReport: ['create', 'view', 'update', 'delete'],
+	invites: ['create', 'cancel'],
 };
 
 export const accessControl = createAccessControl(statement);

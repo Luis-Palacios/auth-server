@@ -10,6 +10,12 @@ const envSchema = z
 		BETTER_AUTH_SECRET: z.string().min(1, 'BETTER_AUTH_SECRET must be set (see .env.example)'),
 		BETTER_AUTH_URL: z.url('BETTER_AUTH_URL must be a valid URL (see .env.example)'),
 		CORS_ORIGINS: z.string().min(1, 'CORS_ORIGINS must be set (see .env.example)'),
+		// The single canonical origin staff-app is served from - distinct from CORS_ORIGINS (a list,
+		// for the CORS allow-list) since this needs to be *one* unambiguous value: better-invite's
+		// defaultRedirectToSignUp/defaultRedirectToSignIn (see auth.ts) build absolute URLs from it,
+		// because an invitee's first click lands cold on auth-server itself, straight from their
+		// email client, with no staff-app page loaded yet to supply a relative-path fallback.
+		STAFF_APP_URL: z.url('STAFF_APP_URL must be a valid URL (see .env.example)'),
 		DATABASE_URL: z.string().min(1, 'DATABASE_URL must be set (see .env.example)'),
 		DB_POOL_MAX: z.coerce.number().int().positive().default(10),
 		DB_IDLE_TIMEOUT_MS: z.coerce.number().int().nonnegative().default(10_000),
@@ -61,6 +67,10 @@ const corsOrigins = env.CORS_ORIGINS.split(',')
 	.map((origin) => origin.trim())
 	.filter(Boolean);
 
+// Stripped of a trailing slash so string interpolation (`${config.staffAppUrl}/sign-up`) never
+// produces a double slash - see auth.ts's invite plugin config.
+const staffAppUrl = env.STAFF_APP_URL.replace(/\/+$/, '');
+
 export const config = {
 	nodeEnv: env.NODE_ENV,
 	isProduction: env.NODE_ENV === 'production',
@@ -68,6 +78,7 @@ export const config = {
 	betterAuthUrl,
 	port,
 	corsOrigins,
+	staffAppUrl,
 	databaseUrl: env.DATABASE_URL,
 	dbPoolMax: env.DB_POOL_MAX,
 	dbIdleTimeoutMs: env.DB_IDLE_TIMEOUT_MS,
