@@ -26,7 +26,13 @@ const authConfig = {
 				from: `Ekklesiaio <${config.resendFromEmail}>`,
 				to: user.email,
 				subject: 'Reset your password',
-				html: `Click the link to reset your password: ${url}`,
+				template: {
+					id: 'ekklesiaio-reset-password',
+					variables: {
+						url,
+						email: user.email,
+					},
+				},
 			});
 		},
 	},
