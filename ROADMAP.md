@@ -140,6 +140,14 @@ before better-auth sees the request, gated by `TRUST_PROXY` (default `false`); f
 `true` only once a real reverse proxy exists in front of this service and sets that header
 itself.
 
+**Update (deployment prep):** `TRUST_PROXY` was replaced by `TRUSTED_PROXIES` (comma-separated
+IPs/CIDRs, empty by default). A boolean isn't enough behind a real chain (ALB, later Cloudflare):
+the header then holds several addresses, and better-auth treats a multi-address header as
+unresolvable unless it's told which hops are trusted, putting everyone in one shared bucket. With
+`TRUSTED_PROXIES` set, `src/index.ts` passes the request through and better-auth reads
+`X-Forwarded-For` right to left, skipping those proxies, to find the real client. Empty keeps the
+old overwrite-with-the-TCP-peer behavior.
+
 Storage is left at better-auth's default (`memory`) for now — fine for a single container,
 but each replica would keep an independent counter, so this needs `storage: "database"` (a new
 `rateLimit` table + migration) before running more than one replica.
@@ -152,7 +160,7 @@ store — matters once you run more than one container replica), fixed-window vs
 limiting.
 
 **New env vars:** `RATE_LIMIT_WINDOW_SECONDS` (default `10`), `RATE_LIMIT_MAX` (default `100`),
-`TRUST_PROXY` (default `false`, see above). Whether rate limiting is enabled at all follows
+`TRUST_PROXY` (default `false`, see above; since replaced by `TRUSTED_PROXIES`). Whether rate limiting is enabled at all follows
 `NODE_ENV` (better-auth's own default: on only when `NODE_ENV=production`).
 
 ---

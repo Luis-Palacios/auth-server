@@ -57,14 +57,18 @@ with an error) and no `build`/`dev`/`start` script defined — don't assume one 
   and `DATABASE_URL` are read via `config`; `.env` is gitignored and never committed.
 - **API/HTTP**: `src/index.ts` mounts `auth.handler` on a [Hono](https://hono.dev/) app at
   `/api/auth/*` (all methods) and a `GET /health` route (`src/routes/health.ts` — debounced DB
-  check plus connection-pool stats), served with `@hono/node-server` on the port derived from
-  `BETTER_AUTH_URL`. CORS is enabled app-wide via `hono/cors`. The underlying `http.Server` has
+  check plus connection-pool stats), served with `@hono/node-server` on `PORT`
+  (default 5000, independent of `BETTER_AUTH_URL`, which is the public URL). CORS is enabled app-wide via `hono/cors`. The underlying `http.Server` has
   `requestTimeout`/`headersTimeout`/`keepAliveTimeout` configured so a slow/stalled client can't
-  hold a connection open indefinitely (see `REQUEST_TIMEOUT_MS` etc. in `.env.example`). Since no
-  reverse proxy sits in front of this service yet, `src/index.ts` also overwrites
-  `X-Forwarded-For` with the real TCP peer address before better-auth's rate limiter sees it
-  (otherwise a direct client could spoof that header to bypass rate limiting) — controlled by
-  `TRUST_PROXY`, which should only flip to `true` once a real reverse proxy exists.
+  hold a connection open indefinitely (see `REQUEST_TIMEOUT_MS` etc. in `.env.example`). Client IP
+  for rate limiting is controlled by `TRUSTED_PROXIES` (comma-separated IPs/CIDRs of the load
+  balancer/CDN; must be present in the environment but may be empty, validated at startup and
+  passed to better-auth as `advanced.ipAddress.trustedProxies`). When empty, `src/index.ts` overwrites `X-Forwarded-For`
+  with the real TCP peer address before better-auth's rate limiter sees it (otherwise a direct
+  client could spoof that header to bypass rate limiting). When set, the request passes through and
+  better-auth reads the header right to left, skipping trusted proxies, to find the real client —
+  behind a proxy, leaving it empty puts every user in one shared bucket (a startup warning fires
+  when it's empty under `NODE_ENV=production`).
 - **Database**: Drizzle ORM against PostgreSQL, schema in `src/data/schemas/auth-schema.ts`.
   `src/data/database.ts` constructs the `pg.Pool` explicitly (rather than via drizzle's
   `connection` shorthand) so it can also export `pool` directly for health-check stats; pool
