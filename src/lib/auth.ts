@@ -36,7 +36,7 @@ const authConfig = {
 			});
 		},
 	},
-	emailVerification:{
+	emailVerification: {
 		sendOnSignUp: true,
 		autoSignInAfterVerification: true,
 		sendVerificationEmail: async ({ user, url }) => {
@@ -49,9 +49,9 @@ const authConfig = {
 					variables: {
 						verificationUrl: url,
 					},
-				}
+				},
 			});
-		}
+		},
 	},
 	// `enabled` is left unset so it falls through to better-auth's own default (on iff
 	// NODE_ENV=production - see config.nodeEnv). window/max here only set the *general* limit;
@@ -61,6 +61,16 @@ const authConfig = {
 	rateLimit: {
 		window: config.rateLimitWindowSeconds,
 		max: config.rateLimitMax,
+	},
+	// Which hops in X-Forwarded-For are our own infrastructure (see TRUSTED_PROXIES in config.ts).
+	// With a non-empty list better-auth reads the header right to left, skips these, and keys rate
+	// limiting on the first address that isn't one of them - so a client-supplied leftmost entry is
+	// ignored. With an empty list it falls back to accepting only a single-address header, which is
+	// what src/index.ts guarantees by overwriting the header when no proxy is configured.
+	advanced: {
+		ipAddress: {
+			trustedProxies: config.trustedProxies,
+		},
 	},
 	plugins: [
 		adminPlugin({
@@ -127,7 +137,7 @@ const authConfig = {
 							url: acceptUrl,
 							email,
 						},
-					}
+					},
 				});
 			},
 			// Widened to the generic plugin type: better-invite's own published .d.mts imports

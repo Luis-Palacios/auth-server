@@ -34,13 +34,13 @@ export const admin = accessControl.newRole({
 export const user = accessControl.newRole({});
 
 export const smallGroupLeader = accessControl.newRole({
-    persons: ['search',],
+	persons: ['search'],
 	smallGroups: ['view', 'update'],
 	smallGroupsReport: ['create', 'view', 'update', 'delete'],
 });
 
 export const deacon = accessControl.newRole({
-    persons: ['search',],
+	persons: ['search'],
 	smallGroups: ['view', 'update'],
 	smallGroupsReport: ['create', 'view', 'update', 'delete'],
 });

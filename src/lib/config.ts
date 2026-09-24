@@ -1,5 +1,18 @@
 import 'dotenv/config';
+import { isIP } from 'node:net';
 import { z } from 'zod';
+
+// One TRUSTED_PROXIES entry: a bare IP ("10.0.0.5") or a CIDR range ("10.0.0.0/16", "2400:cb00::/32").
+// better-auth accepts both but only *warns* on a malformed one and then ignores it, which can silently
+// leave the list empty and downgrade client-IP resolution - so we reject it at startup instead.
+function isValidProxyEntry(entry: string): boolean {
+	const [address, prefix, ...extra] = entry.split('/');
+	if (!address || extra.length > 0) return false;
+	const family = isIP(address); // 0 = not an IP, otherwise 4 or 6
+	if (family === 0) return false;
+	if (prefix === undefined) return true;
+	return /^\d+$/.test(prefix) && Number(prefix) <= (family === 4 ? 32 : 128);
+}
 
 const envSchema = z
 	.object({
@@ -8,7 +21,13 @@ const envSchema = z
 		// limiting is on by default and its dev-mode IP fallback - see src/lib/auth.ts.
 		NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 		BETTER_AUTH_SECRET: z.string().min(1, 'BETTER_AUTH_SECRET must be set (see .env.example)'),
+
 		BETTER_AUTH_URL: z.url('BETTER_AUTH_URL must be a valid URL (see .env.example)'),
+		// The port this process binds to. Deliberately separate from BETTER_AUTH_URL: that is the
+		// *public* URL clients (and better-auth's cookies/CSRF/JWKS issuer) see, which behind an ALB
+		// is https://staff.example.org on 443, while the container itself listens on an unprivileged
+		// port. Defaults to 5000 so local dev keeps working with the default BETTER_AUTH_URL.
+		PORT: z.coerce.number().int().min(1).max(65535).default(5000),
 		CORS_ORIGINS: z.string().min(1, 'CORS_ORIGINS must be set (see .env.example)'),
 		// The single canonical origin staff-app is served from - distinct from CORS_ORIGINS (a list,
 		// for the CORS allow-list) since this needs to be *one* unambiguous value: better-invite's
@@ -25,18 +44,25 @@ const envSchema = z
 		KEEP_ALIVE_TIMEOUT_MS: z.coerce.number().int().positive().default(5_000),
 		RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().positive().default(10),
 		RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
-		// Whether to trust an inbound X-Forwarded-For header as-is (only safe once a real reverse
-		// proxy sits in front of this service and overwrites that header itself) - see
-		// src/index.ts, where this gates the client-IP normalization used for rate limiting.
-		// z.coerce.boolean() is deliberately not used here: Boolean("false") is true in JS, so it
-		// would coerce the literal string "false" to true.
-		TRUST_PROXY: z
-			.enum(['true', 'false'])
-			.default('false')
-			.transform((value) => value === 'true'),
 		RESEND_API_KEY: z.string().min(1, 'RESEND_API_KEY must be set (see .env.example)'),
 		RESEND_FROM_EMAIL: z.string().min(1, 'RESEND_FROM_EMAIL must be set (see .env.example)'),
-		
+		// Comma-separated IPs/CIDR ranges of the reverse proxies (load balancer, CDN) allowed to
+		// append to X-Forwarded-For. better-auth walks that header right to left, skips these, and
+		// treats the first address that isn't one of them as the real client - so a client-supplied
+		// leftmost entry is never believed. Deliberately required (no default) so that "no proxy in
+		// front" is always a conscious choice: an empty value means exactly that, and src/index.ts then
+		// overwrites the header with the TCP peer address instead (and warns when NODE_ENV=production).
+		TRUSTED_PROXIES: z
+			.string('TRUSTED_PROXIES must be set - an empty value means "no proxy in front" (see .env.example)')
+			.transform((value) =>
+				value
+					.split(',')
+					.map((entry) => entry.trim())
+					.filter(Boolean),
+			)
+			.refine((entries) => entries.every(isValidProxyEntry), {
+				message: 'TRUSTED_PROXIES must be a comma-separated list of IPs or CIDR ranges (e.g. 10.0.0.0/16)',
+			}),
 	})
 	.refine((data) => data.HEADERS_TIMEOUT_MS <= data.REQUEST_TIMEOUT_MS, {
 		message: 'HEADERS_TIMEOUT_MS must be <= REQUEST_TIMEOUT_MS (headers are part of the full request)',
@@ -55,11 +81,10 @@ if (!parsedEnv.success) {
 
 const env = parsedEnv.data;
 
-// BETTER_AUTH_URL is the single source of truth for the port: better-auth uses it for cookie
-// domains, trusted-origin/CSRF checks, OAuth callbacks, and the JWKS issuer, so the port we
-// listen on must always match the port in that URL.
+// BETTER_AUTH_URL is the *public* URL: better-auth uses it for cookie domains, trusted-origin/CSRF
+// checks, OAuth callbacks, and the JWKS issuer. It says nothing about the port this process
+// listens on (behind an ALB it's https://host on 443 while we bind an unprivileged port) - that's PORT.
 const betterAuthUrl = new URL(env.BETTER_AUTH_URL);
-const port = Number(betterAuthUrl.port) || (betterAuthUrl.protocol === 'https:' ? 443 : 80);
 
 // CORS_ORIGINS feeds both the Hono CORS middleware (src/index.ts) and better-auth's
 // trustedOrigins (src/lib/auth.ts), so a client is never allowed by one and rejected by the other.
@@ -76,7 +101,7 @@ export const config = {
 	isProduction: env.NODE_ENV === 'production',
 	betterAuthSecret: env.BETTER_AUTH_SECRET,
 	betterAuthUrl,
-	port,
+	port: env.PORT,
 	corsOrigins,
 	staffAppUrl,
 	databaseUrl: env.DATABASE_URL,
@@ -88,7 +113,7 @@ export const config = {
 	keepAliveTimeoutMs: env.KEEP_ALIVE_TIMEOUT_MS,
 	rateLimitWindowSeconds: env.RATE_LIMIT_WINDOW_SECONDS,
 	rateLimitMax: env.RATE_LIMIT_MAX,
-	trustProxy: env.TRUST_PROXY,
+	trustedProxies: env.TRUSTED_PROXIES,
 	resendApiKey: env.RESEND_API_KEY,
 	resendFromEmail: env.RESEND_FROM_EMAIL,
 } as const;

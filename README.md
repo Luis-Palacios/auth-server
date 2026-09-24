@@ -48,7 +48,8 @@ cp .env.example .env
   openssl rand -base64 32
   ```
 
-- `BETTER_AUTH_URL` — the URL this service will run on (defaults to `http://localhost:5000`)
+- `BETTER_AUTH_URL` — the public URL clients reach this service at (defaults to `http://localhost:5000`)
+- `PORT` — the port the server binds to (defaults to `5000`; independent of `BETTER_AUTH_URL`)
 
 ## Scripts
 
@@ -76,7 +77,7 @@ No `build`, `dev`, `start`, or `test` scripts are defined yet.
 
 ## API
 
-Running `bun ./src/index.ts` starts a Hono server (port derived from `BETTER_AUTH_URL`, default
+Running `bun ./src/index.ts` starts a Hono server (listening on `PORT`, default
 `5000`) with all Better Auth routes mounted under `/api/auth/*`. Notable endpoints:
 
 - `/api/auth/*` — Better Auth's own routes (sign-up, sign-in, sessions, admin endpoints, etc.)
