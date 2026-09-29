@@ -1,12 +1,23 @@
+import { Server } from 'node:http'; // value import: used with instanceof
 import { type HttpBindings, serve } from '@hono/node-server';
 import { type Context, Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { auth } from './lib/auth.js'; // path to your auth file
 import { config } from './lib/config.js';
+import { isShuttingDown, registerGracefulShutdown } from './lib/shutdown.js';
 import { customAuthRoute } from './routes/custom-auth/index.js';
 import { healthRoute } from './routes/health.js';
 
 const app = new Hono<{ Bindings: HttpBindings }>();
+
+// Once shutdown starts, tell clients to close their keep-alive connection after this response.
+// Otherwise server.close() waits for each busy socket to idle out (KEEP_ALIVE_TIMEOUT_MS, which is
+// raised above the proxy's idle timeout in prod) and the grace period runs out before it returns.
+app.use('*', async (c, next) => {
+	await next();
+	if (isShuttingDown()) c.header('Connection', 'close');
+});
+
 app.use('*', cors({ origin: config.corsOrigins, credentials: true }));
 app.route('/health', healthRoute);
 app.route('/api/custom-auth', customAuthRoute);
@@ -42,7 +53,7 @@ if (config.isProduction && config.trustedProxies.length === 0) {
 }
 console.log('Server is starting...');
 
-serve(
+const server = serve(
 	{
 		fetch: app.fetch,
 		port: config.port,
@@ -65,3 +76,8 @@ serve(
 		console.log(`Server is running on ${config.betterAuthUrl.origin} (listening on 0.0.0.0:${info.port})`);
 	},
 );
+
+// serve() is typed to also return HTTP/2 servers, but we never pass createServer, so this is always
+// node:http's Server. Check it rather than cast, so a future change fails loudly at startup.
+if (!(server instanceof Server)) throw new Error('Expected serve() to return a node:http Server');
+registerGracefulShutdown(server);
