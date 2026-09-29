@@ -24,7 +24,7 @@ pnpm exec tsc --noEmit            # type-check
 pnpm exec tsx src/lib/auth.ts     # run a TypeScript module directly
 ```
 
-There is currently no usable test runner or single-test command: `pnpm test` is a placeholder that exits with an error. No `build`, `dev`, or `start` scripts exist yet.
+There is currently no usable test runner or single-test command: `pnpm test` is a placeholder that exits with an error. Use `pnpm dev` (tsx watch) for local development and `pnpm build` + `pnpm start` (Node, `dist/index.js`) for production.
 
 ## TypeScript and formatting conventions
 

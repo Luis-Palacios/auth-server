@@ -11,8 +11,7 @@ handler on a Hono app (`/api/auth/*`) plus a health-check route (`src/routes/hea
 serves it via `@hono/node-server`. All environment configuration is centralized and validated in
 `src/lib/config.ts` — never read `process.env` directly elsewhere. Treat this as the foundation
 of a standalone auth microservice within the larger `members-management` project (sibling
-directory: `../membership-applications`), not as a finished product — there's still no
-`build`/`dev`/`start` script. `ROADMAP.md` tracks the in-progress production-readiness hardening
+directory: `../membership-applications`), not as a finished product. `ROADMAP.md` tracks the in-progress production-readiness hardening
 work (connection pooling, HTTP timeouts, rate limiting, graceful shutdown, etc.) one phase at a
 time; pick up at whichever phase is still marked `[ ]`.
 
@@ -23,10 +22,13 @@ not npm/yarn.
 
 ```bash
 pnpm install                      # install dependencies
+pnpm dev                          # run the API with tsx watch (Node), restarting on changes
+pnpm build                        # tsc -p tsconfig.build.json: src/ -> dist/
+pnpm start                        # node --enable-source-maps dist/index.js (production entry point)
+pnpm typecheck                    # tsc --noEmit (base tsconfig.json, also covers drizzle.config.ts)
 pnpm exec biome check .           # lint (Biome, not ESLint/Prettier)
 pnpm exec biome check --write .   # lint + auto-fix
 pnpm exec biome format --write .  # format only
-pnpm exec tsc --noEmit            # type-check
 pnpm exec tsx src/lib/auth.ts     # run a TS file directly during development
 
 pnpm drizzle-kit generate   # generate migrations
@@ -34,13 +36,10 @@ pnpm drizzle-kit migrate    # run migrations
 
 pnpm dlx auth@latest generate # generate auth-migrations
 pnpm dlx auth@latest create-admin --email admin@example.com --name "Admin" --role admin # create admin user
-
-bun ./src/data/seed.ts # seed database
-bun ./src/index.ts     # run the Hono API
 ```
 
-There is no real `test` script yet (`package.json`'s `test` script is a placeholder that exits
-with an error) and no `build`/`dev`/`start` script defined — don't assume one exists.
+Node 24 (`.nvmrc`) is the only runtime, in dev and in prod. Don't use Bun. There is no real
+`test` script yet (`package.json`'s `test` script is a placeholder that exits with an error).
 
 ## Architecture notes
 
@@ -73,10 +72,20 @@ with an error) and no `build`/`dev`/`start` script defined — don't assume one 
   `src/data/database.ts` constructs the `pg.Pool` explicitly (rather than via drizzle's
   `connection` shorthand) so it can also export `pool` directly for health-check stats; pool
   size/timeouts are configurable via `DB_POOL_MAX`/`DB_IDLE_TIMEOUT_MS`/`DB_CONNECTION_TIMEOUT_MS`.
-  Seed script in `src/data/seed.ts` (run with `bun`, not Node/tsx).
+  Create users (including the first admin) through better-auth (the `auth` CLI's `create-admin`,
+  or `auth.api`), never with raw inserts into its tables: the password hash lives in `account`,
+  not `user`.
 - **Module system**: ESM throughout (`"type": "module"` in `package.json`), TypeScript compiled
   with `module: nodenext` / `target: esnext`. `verbatimModuleSyntax` and `isolatedModules` are on,
-  so use explicit `import type` for type-only imports.
+  so use explicit `import type` for type-only imports. Relative imports use `.js` specifiers
+  (`'./config.js'` for `config.ts`) because `tsc` emits them unchanged and Node resolves them
+  against `dist/`.
+- **Build**: `tsconfig.json` is the base config (editor + `typecheck`, includes
+  `drizzle.config.ts`). `tsconfig.build.json` extends it with `rootDir: src` / `outDir: dist`, no
+  declaration files, so the output is `dist/index.js`. Source maps are
+  emitted and enabled at runtime with `--enable-source-maps`, so stack traces point at `.ts`
+  lines. `tsc` never deletes stale files from `dist/`, so delete it after renaming or removing a
+  source file.
 - **TypeScript strictness**: `strict`, `noUncheckedIndexedAccess`, and
   `exactOptionalPropertyTypes` are all enabled — code must satisfy these, not just base `strict`.
 - **Formatting/linting**: Biome only (`biome.json`: single quotes, 120-char line width). No
