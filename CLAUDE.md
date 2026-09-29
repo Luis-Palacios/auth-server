@@ -53,7 +53,9 @@ Node 24 (`.nvmrc`) is the only runtime, in dev and in prod. Don't use Bun. There
   only when `NODE_ENV=production`, which is better-auth's own default and not overridden here),
   and the `admin`, `jwt` (JWKS served at `/.well-known/jwks.json`), and `openAPI` plugins.
   `BETTER_AUTH_SECRET` (32+ chars, high entropy — `openssl rand -base64 32`), `BETTER_AUTH_URL`,
-  and `DATABASE_URL` are read via `config`; `.env` is gitignored and never committed.
+  and `DATABASE_URL` are read via `config`; `.env` is gitignored and never committed. Only the
+  `dev` script loads `.env` (Node's `--env-file-if-exists`, real env vars win); app code must
+  never load it (no `dotenv`), so production config comes from real env vars only.
 - **API/HTTP**: `src/index.ts` mounts `auth.handler` on a [Hono](https://hono.dev/) app at
   `/api/auth/*` (all methods) and a `GET /health` route (`src/routes/health.ts` — debounced DB
   check plus connection-pool stats), served with `@hono/node-server` on `PORT`

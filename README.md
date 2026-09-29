@@ -40,6 +40,10 @@ Copy `.env.example` to `.env` and fill in the values:
 cp .env.example .env
 ```
 
+Only `pnpm dev` reads `.env` (Node's `--env-file-if-exists`); variables already set in the shell
+win over the file. `pnpm start` never reads it: in production, config comes from real environment
+variables only. `.env` is read once at startup, so restart `pnpm dev` after editing it.
+
 - `BETTER_AUTH_SECRET` — at least 32 characters, high entropy. Generate one with:
 
   ```bash
