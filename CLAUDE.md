@@ -70,6 +70,11 @@ Node 24 (`.nvmrc`) is the only runtime, in dev and in prod. Don't use Bun. There
   better-auth reads the header right to left, skipping trusted proxies, to find the real client —
   behind a proxy, leaving it empty puts every user in one shared bucket (a startup warning fires
   when it's empty under `NODE_ENV=production`).
+- **Shutdown**: `src/lib/shutdown.ts` handles `SIGTERM`/`SIGINT`: `server.close()`, then
+  `pool.end()`, bounded by `SHUTDOWN_TIMEOUT_MS`. While shutting down, a middleware in
+  `src/index.ts` adds `Connection: close` to every response (otherwise busy keep-alive sockets hold
+  `server.close()` open for `KEEP_ALIVE_TIMEOUT_MS`) and `/health` returns 503. Anything else that
+  holds a resource (new pools, clients, timers) must be closed there too.
 - **Database**: Drizzle ORM against PostgreSQL, schema in `src/data/schemas/auth-schema.ts`.
   `src/data/database.ts` constructs the `pg.Pool` explicitly (rather than via drizzle's
   `connection` shorthand) so it can also export `pool` directly for health-check stats; pool
