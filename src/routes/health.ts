@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { db, pool } from '../data/database.js';
 import { config } from '../lib/config.js';
+import { isShuttingDown } from '../lib/shutdown.js';
 
 // Debounces the actual `select 1` so a burst of /health calls (e.g. a flood, or just an
 // aggressive orchestrator polling interval) collapses into one real query against the pool
@@ -35,6 +36,8 @@ async function checkDatabase(): Promise<'up' | 'down'> {
 }
 
 export const healthRoute = new Hono().get('/', async (c) => {
+	// Report "not ready" as soon as shutdown starts, without querying the DB: the pool is about to close.
+	if (isShuttingDown()) return c.json({ status: 'shutting_down' }, 503);
 	const dbStatus = await checkDatabase();
 	const poolStatus = {
 		total: pool.totalCount,
