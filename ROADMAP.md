@@ -166,7 +166,7 @@ limiting.
 ---
 
 ## Phase 6 — Graceful shutdown
-`[ ]`
+`[x]`
 
 **What:** Handle `SIGTERM` (what Docker sends on `docker stop`/redeploy) by stopping new
 connections, letting in-flight requests finish, and closing the DB pool cleanly, before the
@@ -179,7 +179,29 @@ and 4 all tie together (health endpoint should start reporting "not ready" durin
 **New concepts:** Node process signals, why containers get a grace period before `SIGKILL`,
 closing a `pg.Pool` cleanly.
 
-**New env vars:** possibly `SHUTDOWN_GRACE_PERIOD_MS`.
+**Done:** `src/lib/shutdown.ts`, hand-written on Node's built-ins rather than a library
+(`terminus`, `http-terminator`, `stoppable` mostly exist to fill gaps Node 19+ has closed). On
+`SIGTERM`/`SIGINT` it sets a flag, calls `server.close()` (refuses new connections, waits for
+in-flight requests), then `pool.end()`, then exits `0`. Past `SHUTDOWN_TIMEOUT_MS` it calls
+`closeAllConnections()` and exits `1`; a second signal exits `1` immediately.
+
+- **`Connection: close` while shutting down** (middleware in `src/index.ts`). Found by testing:
+  `server.close()` drops *idle* keep-alive sockets at once, but a socket that was busy when shutdown
+  started stays open until `keepAliveTimeout` after its response. With keep-alive raised above a
+  proxy's idle timeout (60s+), that outlasts the orchestrator's grace period and ends in `SIGKILL`.
+- `/health` returns `503 {status: "shutting_down"}` without touching the DB. In practice only a
+  request already on an open connection can see it, since new connections are refused.
+- No pre-stop delay: with an ALB, ECS drains the target *before* sending `SIGTERM`. How ECS Service
+  Connect orders draining is still to be verified on a real deploy (DEPLOYMENT-ROADMAP Phase 8).
+- The container must run `node` directly as PID 1 (not `pnpm start`), or the signal may never
+  reach the app.
+- Verified in Docker (real signals, node as PID 1): in-flight requests complete with
+  `Connection: close`, new connections get `ECONNREFUSED`, and the deadline and double-signal paths
+  exit `1`. A process-group `SIGINT` (what a terminal's Ctrl+C sends) under `tsx watch` shuts down
+  once, not twice.
+
+**New env vars:** `SHUTDOWN_TIMEOUT_MS` (default `20000`). Keep it below the orchestrator's grace
+period: ECS `stopTimeout` (30s default), Docker Compose `stop_grace_period` (10s default, so raise it).
 
 ---
 
