@@ -6,5 +6,7 @@
         "formatter": {
             "quoteStyle": "single"
         }
-    }
+    },
+    "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+    "files": { "includes": ["**", "!drizzle"] }
 }
