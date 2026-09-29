@@ -59,7 +59,10 @@ Node 24 (`.nvmrc`) is the only runtime, in dev and in prod. Don't use Bun. There
 - **API/HTTP**: `src/index.ts` mounts `auth.handler` on a [Hono](https://hono.dev/) app at
   `/api/auth/*` (all methods) and a `GET /health` route (`src/routes/health.ts` — debounced DB
   check plus connection-pool stats), served with `@hono/node-server` on `PORT`
-  (default 5000, independent of `BETTER_AUTH_URL`, which is the public URL). CORS is enabled app-wide via `hono/cors`. The underlying `http.Server` has
+  (default 5000, independent of `BETTER_AUTH_URL`, which is the public URL). Origins are two separate settings: `TRUSTED_ORIGINS` feeds better-auth's
+  `trustedOrigins` (CSRF and redirect checks; `BETTER_AUTH_URL`'s origin is always trusted, so it's
+  empty in prod), and `CORS_ORIGINS` mounts `hono/cors` only when non-empty (no browser calls this
+  service cross-origin: staff-app proxies `/api/auth/*` same-origin). The underlying `http.Server` has
   `requestTimeout`/`headersTimeout`/`keepAliveTimeout` configured so a slow/stalled client can't
   hold a connection open indefinitely (see `REQUEST_TIMEOUT_MS` etc. in `.env.example`). Client IP
   for rate limiting is controlled by `TRUSTED_PROXIES` (comma-separated IPs/CIDRs of the load

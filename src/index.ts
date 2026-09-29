@@ -18,7 +18,11 @@ app.use('*', async (c, next) => {
 	if (isShuttingDown()) c.header('Connection', 'close');
 });
 
-app.use('*', cors({ origin: config.corsOrigins, credentials: true }));
+// Only mounted when CORS_ORIGINS lists a cross-origin browser client. Today there is none: the
+// browser reaches /api/auth/* through staff-app's same-origin proxy (see src/lib/config.ts).
+if (config.corsOrigins.length > 0) {
+	app.use('*', cors({ origin: config.corsOrigins, credentials: true }));
+}
 app.route('/health', healthRoute);
 app.route('/api/custom-auth', customAuthRoute);
 app.on(['POST', 'GET'], '/api/auth/*', (c) => auth.handler(resolveAuthRequest(c)));

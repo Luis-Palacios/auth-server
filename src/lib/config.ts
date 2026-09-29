@@ -13,6 +13,19 @@ function isValidProxyEntry(entry: string): boolean {
 	return /^\d+$/.test(prefix) && Number(prefix) <= (family === 4 ? 32 : 128);
 }
 
+function splitCommaList(value: string): string[] {
+	return value
+		.split(',')
+		.map((entry) => entry.trim())
+		.filter(Boolean);
+}
+
+// A browser's Origin header is exactly scheme://host[:port], so a CORS entry with a path or a
+// trailing slash ("https://app.example.org/") would never match and silently block that client.
+function isBareOrigin(entry: string): boolean {
+	return URL.canParse(entry) && new URL(entry).origin === entry;
+}
+
 const envSchema = z
 	.object({
 		// Standard Node convention, defaulting the way Node itself does when unset. better-auth
@@ -27,9 +40,25 @@ const envSchema = z
 		// is https://staff.example.org on 443, while the container itself listens on an unprivileged
 		// port. Defaults to 5000 so local dev keeps working with the default BETTER_AUTH_URL.
 		PORT: z.coerce.number().int().min(1).max(65535).default(5000),
-		CORS_ORIGINS: z.string().min(1, 'CORS_ORIGINS must be set (see .env.example)'),
-		// The single canonical origin staff-app is served from - distinct from CORS_ORIGINS (a list,
-		// for the CORS allow-list) since this needs to be *one* unambiguous value: better-invite's
+		// Extra origins better-auth trusts for its CSRF (Origin header) and redirect-target checks, on
+		// top of BETTER_AUTH_URL's origin, which it always trusts. Empty by default: behind the staff-app
+		// proxy the browser's origin *is* BETTER_AUTH_URL's. Entries go to better-auth as-is, so its
+		// wildcard ("https://*.example.org") and custom-scheme ("myapp://", for a mobile app) patterns work.
+		TRUSTED_ORIGINS: z.string().default('').transform(splitCommaList),
+		// Origins allowed to call this service cross-origin from a browser (CORS). Empty by default,
+		// and empty means the CORS middleware isn't mounted at all: no browser calls this service
+		// cross-origin today (staff-app proxies /api/auth/* same-origin). Native mobile apps don't need
+		// CORS - it's a browser mechanism. Must be exact origins, since that's what browsers send.
+		CORS_ORIGINS: z
+			.string()
+			.default('')
+			.transform(splitCommaList)
+			.refine((entries) => entries.every(isBareOrigin), {
+				message:
+					'CORS_ORIGINS must be a comma-separated list of bare origins, e.g. https://app.example.org (no path or trailing slash)',
+			}),
+		// The single canonical origin staff-app is served from - distinct from the origin lists above
+		// since this needs to be *one* unambiguous value: better-invite's
 		// defaultRedirectToSignUp/defaultRedirectToSignIn (see auth.ts) build absolute URLs from it,
 		// because an invitee's first click lands cold on auth-server itself, straight from their
 		// email client, with no staff-app page loaded yet to supply a relative-path fallback.
@@ -54,12 +83,7 @@ const envSchema = z
 		// overwrites the header with the TCP peer address instead (and warns when NODE_ENV=production).
 		TRUSTED_PROXIES: z
 			.string('TRUSTED_PROXIES must be set - an empty value means "no proxy in front" (see .env.example)')
-			.transform((value) =>
-				value
-					.split(',')
-					.map((entry) => entry.trim())
-					.filter(Boolean),
-			)
+			.transform(splitCommaList)
 			.refine((entries) => entries.every(isValidProxyEntry), {
 				message: 'TRUSTED_PROXIES must be a comma-separated list of IPs or CIDR ranges (e.g. 10.0.0.0/16)',
 			}),
@@ -86,12 +110,6 @@ const env = parsedEnv.data;
 // listens on (behind an ALB it's https://host on 443 while we bind an unprivileged port) - that's PORT.
 const betterAuthUrl = new URL(env.BETTER_AUTH_URL);
 
-// CORS_ORIGINS feeds both the Hono CORS middleware (src/index.ts) and better-auth's
-// trustedOrigins (src/lib/auth.ts), so a client is never allowed by one and rejected by the other.
-const corsOrigins = env.CORS_ORIGINS.split(',')
-	.map((origin) => origin.trim())
-	.filter(Boolean);
-
 // Stripped of a trailing slash so string interpolation (`${config.staffAppUrl}/sign-up`) never
 // produces a double slash - see auth.ts's invite plugin config.
 const staffAppUrl = env.STAFF_APP_URL.replace(/\/+$/, '');
@@ -102,7 +120,8 @@ export const config = {
 	betterAuthSecret: env.BETTER_AUTH_SECRET,
 	betterAuthUrl,
 	port: env.PORT,
-	corsOrigins,
+	trustedOrigins: env.TRUSTED_ORIGINS,
+	corsOrigins: env.CORS_ORIGINS,
 	staffAppUrl,
 	databaseUrl: env.DATABASE_URL,
 	dbPoolMax: env.DB_POOL_MAX,
