@@ -13,7 +13,10 @@ const resend = new Resend(config.resendApiKey);
 
 const authConfig = {
 	secret: config.betterAuthSecret,
-	trustedOrigins: config.corsOrigins,
+	// Passed explicitly so better-auth uses the validated value rather than reading
+	// process.env.BETTER_AUTH_URL itself. Its origin is always trusted for CSRF/redirect checks.
+	baseURL: config.betterAuthUrl.origin,
+	trustedOrigins: config.trustedOrigins,
 	database: drizzleAdapter(db, {
 		provider: 'pg',
 		schema: schema,
