@@ -1,12 +1,12 @@
 {
-    "formatter": {
-        "lineWidth": 120
-    },
-    "javascript": {
-        "formatter": {
-            "quoteStyle": "single"
-        }
-    },
-    "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
-    "files": { "includes": ["**", "!drizzle"] }
+	"formatter": {
+		"lineWidth": 120
+	},
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "single"
+		}
+	},
+	"vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+	"files": { "includes": ["**", "!drizzle"] }
 }
