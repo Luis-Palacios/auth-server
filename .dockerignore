@@ -1,0 +1,25 @@
+# Ignore node_modules
+**/node_modules
+
+# Ignore logs
+**/*.log
+
+# Ignore Dockerfile
+Dockerfile
+
+# Ignore environment files
+**/.env*
+**/*.env
+
+# Full history, including any secret ever committed; also changes on every commit
+.git/
+
+# Dev-only tooling and docs; not needed to build or run the Docker image
+**/*.md
+**/dist/
+.github/
+.gitignore
+.nvmrc
+biome.json
+.dockerignore
+drizzle.config.ts
