@@ -76,6 +76,9 @@ COPY package.json .
 COPY --from=deps /usr/src/app/node_modules ./node_modules
 COPY --from=build /usr/src/app/dist ./dist
 
+# Read at run time by dist/migrate.js (run as a one-off task: node dist/migrate.js).
+COPY drizzle ./drizzle
+
 # Expose the port that the application listens on.
 EXPOSE 5000
 
