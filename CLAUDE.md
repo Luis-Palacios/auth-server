@@ -32,7 +32,11 @@ pnpm exec biome format --write .  # format only
 pnpm exec tsx src/lib/auth.ts     # run a TS file directly during development
 
 pnpm drizzle-kit generate   # generate migrations
-pnpm drizzle-kit migrate    # run migrations
+pnpm drizzle-kit migrate    # run migrations (local dev)
+node dist/migrate.js        # run migrations in the production image (one-off task; see below)
+
+docker build -t auth-server:dev .                                  # build the production image
+docker run --rm -e DATABASE_URL=... auth-server:dev node dist/migrate.js  # migrate from the image
 
 pnpm dlx auth@latest generate # generate auth-migrations
 pnpm dlx auth@latest create-admin --email admin@example.com --name "Admin" --role admin # create admin user
@@ -85,6 +89,23 @@ Node 24 (`.nvmrc`) is the only runtime, in dev and in prod. Don't use Bun. There
   Create users (including the first admin) through better-auth (the `auth` CLI's `create-admin`,
   or `auth.api`), never with raw inserts into its tables: the password hash lives in `account`,
   not `user`.
+- **Migrations in production**: `src/migrate.ts` → `dist/migrate.js`, shipped in the same image and
+  run as a one-off task before each deploy, never on app startup. It calls drizzle-orm's
+  `migrate()`, which is the same code `drizzle-kit migrate` uses (verified: same
+  `drizzle.__drizzle_migrations` table and hashes), so upgrade `drizzle-orm` and `drizzle-kit`
+  together. Constraints to keep:
+  - It must **not** import `lib/config.ts` or `data/database.ts`: the migrate task gets only
+    `DATABASE_URL`, none of the app's secrets.
+  - Lock, `lock_timeout` and the migrations all run on **one `pg.Client`**. A pool would break the
+    advisory lock, which belongs to a session.
+  - `pg_advisory_lock` must be taken **before** `SET lock_timeout`, because `lock_timeout` also
+    applies to advisory locks and would make a second run fail instead of wait.
+  - All pending migrations run in one transaction, so `CREATE INDEX CONCURRENTLY` needs separate
+    handling.
+- **Docker image**: multi-stage `Dockerfile` (Alpine, Node and Alpine pinned exactly, non-root
+  `node` user, exec-form `CMD` so node is PID 1 and gets SIGTERM). `.pnpmfile.cjs` drops
+  better-auth's optional `drizzle-kit` peer, so `--prod` installs don't ship drizzle-kit/esbuild.
+  The lockfile records its checksum, so the Dockerfile has to bind-mount it in both install steps.
 - **Module system**: ESM throughout (`"type": "module"` in `package.json`), TypeScript compiled
   with `module: nodenext` / `target: esnext`. `verbatimModuleSyntax` and `isolatedModules` are on,
   so use explicit `import type` for type-only imports. Relative imports use `.js` specifiers

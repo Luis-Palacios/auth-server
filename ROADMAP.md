@@ -227,8 +227,11 @@ why it matters once logs go to a container log driver / aggregator.
 - **Node thread pool tuning (`UV_THREADPOOL_SIZE`)** — only worth touching if profiling
   under load shows password hashing (bcrypt/scrypt, used internally by better-auth) is
   bottlenecked on libuv's threadpool. Premature before Phase 3 exists to even generate load.
-- **Docker `HEALTHCHECK` wiring** — once Phase 1 exists, wire it into the `Dockerfile`
-  (there isn't one yet — that's its own small phase).
+- **Container health check wiring**: the `Dockerfile` now exists (see management-infra's
+  DEPLOYMENT-ROADMAP Phase 2) but has no `HEALTHCHECK`. Undecided: a Dockerfile `HEALTHCHECK` vs a
+  `healthCheck` in the ECS task definition (ECS ignores the Dockerfile's). auth-server sits behind
+  Service Connect, not the ALB, so no ALB health check covers it. Decide in Phase 3 (compose) or
+  Phase 8 (ECS). The Alpine image has busybox `wget`, so no extra tool is needed for either.
 - **Secrets management** — plain env vars vs Docker secrets / a vault, for
   `BETTER_AUTH_SECRET` and `DATABASE_URL` specifically in production.
 
