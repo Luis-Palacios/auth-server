@@ -6,11 +6,14 @@ import { defineConfig } from 'drizzle-kit';
 // real env vars are used. Variables already set in the environment win over the file.
 if (existsSync('.env')) process.loadEnvFile('.env');
 
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) throw new Error('DATABASE_URL must be set (see .env.example)');
+
 export default defineConfig({
 	out: './drizzle',
 	schema: './src/data/schemas',
 	dialect: 'postgresql',
 	dbCredentials: {
-		url: process.env.DATABASE_URL!,
+		url: databaseUrl,
 	},
 });
