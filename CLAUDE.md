@@ -39,7 +39,10 @@ docker build -t auth-server:dev .                                  # build the p
 docker run --rm -e DATABASE_URL=... auth-server:dev node dist/migrate.js  # migrate from the image
 
 pnpm dlx auth@latest generate # generate auth-migrations
-pnpm dlx auth@latest create-admin --email admin@example.com --name "Admin" --role admin # create admin user
+
+# give a signed-up, verified user a role (e.g. the first admin); see "One-off scripts" below
+pnpm exec tsx --env-file-if-exists=.env src/scripts/set-role.ts <email> <role>  # local dev
+node dist/scripts/set-role.js <email> <role>                                    # production image
 ```
 
 Node 24 (`.nvmrc`) is the only runtime, in dev and in prod. Don't use Bun. There is no real
@@ -86,9 +89,9 @@ Node 24 (`.nvmrc`) is the only runtime, in dev and in prod. Don't use Bun. There
   `src/data/database.ts` constructs the `pg.Pool` explicitly (rather than via drizzle's
   `connection` shorthand) so it can also export `pool` directly for health-check stats; pool
   size/timeouts are configurable via `DB_POOL_MAX`/`DB_IDLE_TIMEOUT_MS`/`DB_CONNECTION_TIMEOUT_MS`.
-  Create users (including the first admin) through better-auth (the `auth` CLI's `create-admin`,
-  or `auth.api`), never with raw inserts into its tables: the password hash lives in `account`,
-  not `user`.
+  Create users through better-auth (sign-up, invites, or `auth.api`), never with raw inserts into
+  its tables: the password hash lives in `account`, not `user`. Changing an existing user's role is
+  the one exception (see "One-off scripts").
 - **Migrations in production**: `src/migrate.ts` → `dist/migrate.js`, shipped in the same image and
   run as a one-off task before each deploy, never on app startup. It calls drizzle-orm's
   `migrate()`, which is the same code `drizzle-kit migrate` uses (verified: same
@@ -102,6 +105,20 @@ Node 24 (`.nvmrc`) is the only runtime, in dev and in prod. Don't use Bun. There
     applies to advisory locks and would make a second run fail instead of wait.
   - All pending migrations run in one transaction, so `CREATE INDEX CONCURRENTLY` needs separate
     handling.
+- **One-off scripts**: `src/scripts/set-role.ts` → `dist/scripts/set-role.js <email> <role>`, run as
+  a one-off task from the app's own task definition (DML only, so the app's DB user is enough). The
+  first admin signs up normally in staff-app (role `pending`), then this promotes them; it's also
+  the break-glass fix if every admin loses access. Constraints to keep:
+  - Like `migrate.ts`, it must **not** import `lib/config.ts`, `lib/auth.ts` or `data/database.ts`:
+    it needs only `DATABASE_URL`, so it still works when the app's config is broken. Valid roles
+    come from `roles` in `permissions/statements.ts`, the same map the admin plugin uses.
+  - It updates `user.role` directly, so better-auth's `databaseHooks` don't run (none are
+    configured). Revisit the script if a user-update hook is ever added.
+  - It refuses unverified accounts and doesn't revoke sessions (to lock out a compromised account,
+    ban it). The new role is visible on the user's next request only while `session.cookieCache`
+    stays off.
+  - Exit codes: `0` changed or already set, `1` failure at run time (not found, unverified, DB
+    error), `2` usage error.
 - **Docker image**: multi-stage `Dockerfile` (Alpine, Node and Alpine pinned exactly, non-root
   `node` user, exec-form `CMD` so node is PID 1 and gets SIGTERM). `.pnpmfile.cjs` drops
   better-auth's optional `drizzle-kit` peer, so `--prod` installs don't ship drizzle-kit/esbuild.

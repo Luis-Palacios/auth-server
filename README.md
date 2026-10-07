@@ -71,9 +71,8 @@ pnpm dlx auth@latest generate # generate better-auth schemas
 pnpm drizzle-kit generate   # generate migrations
 pnpm drizzle-kit migrate # run migrations
 
-
-
-pnpm dlx auth@latest create-admin --email admin@example.com --name "Admin" --role admin # create admin user, password will be asked
+# give a signed-up, verified user a role, e.g. the first admin (sign up in staff-app first)
+pnpm exec tsx --env-file-if-exists=.env src/scripts/set-role.ts admin@example.com admin
 ```
 
 `pnpm dev` is for local development only. Production runs the compiled output with Node
