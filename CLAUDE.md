@@ -40,6 +40,9 @@ docker run --rm -e DATABASE_URL=... auth-server:dev node dist/migrate.js  # migr
 
 pnpm dlx auth@latest generate # generate auth-migrations
 
+# create an admin user from scratch, password is prompted (local dev only: unpinned download, interactive)
+pnpm dlx auth@latest create-admin --email admin@example.com --name "Admin" --role admin
+
 # give a signed-up, verified user a role (e.g. the first admin); see "One-off scripts" below
 pnpm exec tsx --env-file-if-exists=.env src/scripts/set-role.ts <email> <role>  # local dev
 node dist/scripts/set-role.js <email> <role>                                    # production image
@@ -89,9 +92,10 @@ Node 24 (`.nvmrc`) is the only runtime, in dev and in prod. Don't use Bun. There
   `src/data/database.ts` constructs the `pg.Pool` explicitly (rather than via drizzle's
   `connection` shorthand) so it can also export `pool` directly for health-check stats; pool
   size/timeouts are configurable via `DB_POOL_MAX`/`DB_IDLE_TIMEOUT_MS`/`DB_CONNECTION_TIMEOUT_MS`.
-  Create users through better-auth (sign-up, invites, or `auth.api`), never with raw inserts into
-  its tables: the password hash lives in `account`, not `user`. Changing an existing user's role is
-  the one exception (see "One-off scripts").
+  Create users through better-auth (sign-up, invites, `auth.api`, or the `auth` CLI's
+  `create-admin` in local dev), never with raw inserts into its tables: the password hash lives in
+  `account`, not `user`. Changing an existing user's role is the one exception (see "One-off
+  scripts").
 - **Migrations in production**: `src/migrate.ts` → `dist/migrate.js`, shipped in the same image and
   run as a one-off task before each deploy, never on app startup. It calls drizzle-orm's
   `migrate()`, which is the same code `drizzle-kit migrate` uses (verified: same
