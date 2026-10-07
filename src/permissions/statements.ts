@@ -49,3 +49,15 @@ export const elder = accessControl.newRole({
 	...statement,
 	user: ['create', 'list', 'ban', 'set-role'],
 });
+
+// Every role the admin plugin accepts (src/lib/auth.ts) and the only valid values for user.role.
+// Kept here, not in auth.ts, so scripts can validate a role without importing auth.ts (and with it
+// config.ts and every app secret) - see src/scripts/set-role.ts.
+export const roles = {
+	admin,
+	user,
+	smallGroupLeader,
+	deacon,
+	pending,
+	elder,
+};

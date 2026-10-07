@@ -6,7 +6,7 @@ import { invite } from 'better-invite';
 import { Resend } from 'resend';
 import { db } from '../data/database.js';
 import * as schema from '../data/schemas/auth-schema.js';
-import { accessControl, admin, deacon, elder, pending, smallGroupLeader, user } from '../permissions/statements.js';
+import { accessControl, roles } from '../permissions/statements.js';
 import { config } from './config.js';
 
 const resend = new Resend(config.resendApiKey);
@@ -78,14 +78,7 @@ const authConfig = {
 	plugins: [
 		adminPlugin({
 			ac: accessControl,
-			roles: {
-				admin,
-				user,
-				smallGroupLeader,
-				deacon,
-				pending,
-				elder,
-			},
+			roles,
 			// freshly signed-up account should have no access at all
 			// until an admin or elder assigns a real role.
 			defaultRole: 'pending',
