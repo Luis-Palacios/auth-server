@@ -42,7 +42,15 @@ const authConfig = {
 	emailVerification: {
 		sendOnSignUp: true,
 		autoSignInAfterVerification: true,
-		sendVerificationEmail: async ({ user, url }) => {
+		sendVerificationEmail: async ({ user, token }) => {
+			// Deliberately ignoring the plugin-built `url` here (auth-server's GET /verify-email,
+			// which verifies - and, with autoSignInAfterVerification, signs in - on page load, so a
+			// mail client's link scanner prefetching it would consume the token and get the session).
+			// Instead, point at a staff-app page that only calls that endpoint when the user presses
+			// a button - see app/(auth)/verify-email/ in staff-app. `email` lets that page offer
+			// "resend" when the token has expired.
+			const verificationUrl = `${config.staffAppUrl}/verify-email?token=${encodeURIComponent(token)}&email=${encodeURIComponent(user.email)}`;
+
 			void resend.emails.send({
 				from: `Ekklesiaio <${config.resendFromEmail}>`,
 				to: user.email,
@@ -50,7 +58,7 @@ const authConfig = {
 				template: {
 					id: 'ekklesiaio-verify-email',
 					variables: {
-						verificationUrl: url,
+						verificationUrl,
 					},
 				},
 			});
