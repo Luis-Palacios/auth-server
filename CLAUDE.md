@@ -11,7 +11,7 @@ handler on a Hono app (`/api/auth/*`) plus a health-check route (`src/routes/hea
 serves it via `@hono/node-server`. All environment configuration is centralized and validated in
 `src/lib/config.ts` — never read `process.env` directly elsewhere. Treat this as the foundation
 of a standalone auth microservice within the larger `members-management` project (sibling
-directory: `../membership-applications`), not as a finished product. `ROADMAP.md` tracks the in-progress production-readiness hardening
+directory: `../membership-management`), not as a finished product. `ROADMAP.md` tracks the in-progress production-readiness hardening
 work (connection pooling, HTTP timeouts, rate limiting, graceful shutdown, etc.) one phase at a
 time; pick up at whichever phase is still marked `[ ]`.
 
