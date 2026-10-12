@@ -3,13 +3,12 @@ import { type BetterAuthOptions, type BetterAuthPlugin, betterAuth } from 'bette
 import { jwt, openAPI } from 'better-auth/plugins';
 import { admin as adminPlugin } from 'better-auth/plugins/admin';
 import { invite } from 'better-invite';
-import { Resend } from 'resend';
 import { db } from '../data/database.js';
 import * as schema from '../data/schemas/auth-schema.js';
+import { getLocale } from '../emails/locale.js';
 import { accessControl, roles } from '../permissions/statements.js';
 import { config } from './config.js';
-
-const resend = new Resend(config.resendApiKey);
+import { sendInviteUserEmail, sendResetPasswordEmail, sendVerifyEmail } from './emails.js';
 
 const authConfig = {
 	secret: config.betterAuthSecret,
@@ -24,25 +23,15 @@ const authConfig = {
 	emailAndPassword: {
 		enabled: true,
 		requireEmailVerification: true,
-		sendResetPassword: async ({ user, url }) => {
-			void resend.emails.send({
-				from: `Ekklesiaio <${config.resendFromEmail}>`,
-				to: user.email,
-				subject: 'Reset your password',
-				template: {
-					id: 'ekklesiaio-reset-password',
-					variables: {
-						url,
-						email: user.email,
-					},
-				},
-			});
+		sendResetPassword: async ({ user, url }, request) => {
+			const locale = getLocale(request);
+			void sendResetPasswordEmail({ to: user.email, url, locale });
 		},
 	},
 	emailVerification: {
 		sendOnSignUp: true,
 		autoSignInAfterVerification: true,
-		sendVerificationEmail: async ({ user, token }) => {
+		sendVerificationEmail: async ({ user, token }, request) => {
 			// Deliberately ignoring the plugin-built `url` here (auth-server's GET /verify-email,
 			// which verifies - and, with autoSignInAfterVerification, signs in - on page load, so a
 			// mail client's link scanner prefetching it would consume the token and get the session).
@@ -50,18 +39,8 @@ const authConfig = {
 			// a button - see app/(auth)/verify-email/ in staff-app. `email` lets that page offer
 			// "resend" when the token has expired.
 			const verificationUrl = `${config.staffAppUrl}/verify-email?token=${encodeURIComponent(token)}&email=${encodeURIComponent(user.email)}`;
-
-			void resend.emails.send({
-				from: `Ekklesiaio <${config.resendFromEmail}>`,
-				to: user.email,
-				subject: 'Verify your email address',
-				template: {
-					id: 'ekklesiaio-verify-email',
-					variables: {
-						verificationUrl,
-					},
-				},
-			});
+			const locale = getLocale(request);
+			void sendVerifyEmail({ to: user.email, verificationUrl, locale });
 		},
 	},
 	// `enabled` is left unset so it falls through to better-auth's own default (on iff
@@ -125,23 +104,24 @@ const authConfig = {
 				// still carries the inviter's session cookie (that endpoint is session-gated), so the
 				// inviter can be resolved the same way src/routes/custom-auth/invites.ts already does.
 				const inviterSession = request ? await auth.api.getSession({ headers: request.headers }) : null;
-				const inviterName = inviterSession?.user.name ?? 'a team member';
+				const inviterName = inviterSession?.user.name;
 				const inviterEmail = inviterSession?.user.email ?? '';
 
-				void resend.emails.send({
-					from: `Ekklesiaio <${config.resendFromEmail}>`,
+				// TODO: Hardcoded for now until we add a way to handle multiple tenants/Ministries
+				const churchName = 'Petra Managua';
+				const ministryName = 'Ministerio Cristiano Petra';
+
+				const locale = getLocale(request);
+
+				void sendInviteUserEmail({
 					to: email,
-					subject: "You've been invited to Ekklesiaio",
-					template: {
-						id: 'ekklesiaio-invite-user',
-						variables: {
-							inviterName,
-							inviterEmail,
-							role,
-							url: acceptUrl,
-							email,
-						},
-					},
+					inviterName,
+					inviterEmail,
+					role,
+					url: acceptUrl,
+					churchName: churchName,
+					ministryName: ministryName,
+					locale,
 				});
 			},
 			// Widened to the generic plugin type: better-invite's own published .d.mts imports
@@ -172,3 +152,4 @@ const authConfig = {
 } satisfies BetterAuthOptions;
 
 export const auth: ReturnType<typeof betterAuth<typeof authConfig>> = betterAuth(authConfig);
+

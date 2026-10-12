@@ -7,6 +7,7 @@
 		"build": "tsc -p tsconfig.build.json",
 		"start": "node --enable-source-maps dist/index.js",
 		"dev": "tsx watch --env-file-if-exists=.env src/index.ts",
+		"email:dev": "email dev --dir src/emails --port 3002",
 		"typecheck": "tsc --noEmit",
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},
@@ -30,6 +31,9 @@
 		"drizzle-orm": "1.0.0-rc.4",
 		"hono": "^4.13.7",
 		"pg": "^8.23.0",
+		"react": "19.2.4",
+		"react-dom": "19.2.4",
+		"react-email": "6.9.5",
 		"resend": "^6.28.1",
 		"zod": "^4.6.2"
 	},
@@ -37,6 +41,8 @@
 		"@biomejs/biome": "2.5.12",
 		"@types/node": "^26.4.1",
 		"@types/pg": "^8.23.1",
+		"@types/react": "19.2.14",
+		"@types/react-dom": "19.2.3",
 		"drizzle-kit": "1.0.0-rc.4",
 		"tsx": "^4.23.13",
 		"typescript": "^7.0.2"
