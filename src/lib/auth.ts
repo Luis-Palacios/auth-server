@@ -9,6 +9,7 @@ import { getLocale } from '../emails/locale.js';
 import { accessControl, roles } from '../permissions/statements.js';
 import { config } from './config.js';
 import { sendInviteUserEmail, sendResetPasswordEmail, sendVerifyEmail } from './emails.js';
+import { notifyInviteAccepted } from './member-link-notifier.js';
 
 const authConfig = {
 	secret: config.betterAuthSecret,
@@ -87,6 +88,19 @@ const authConfig = {
 			// verification email from emailVerification.sendVerificationEmail above), so the real
 			// window a real invitee needs is much longer than "filling out one form."
 			inviteCookieMaxAge: 60 * 60 * 24, // 24 hours
+			// Tells membership-management so it can link the new user to the member with that email
+			// (member-user-linking spec, D1). Runs for both accept paths (new account after sign-up or
+			// verify-email, and an already signed-in user via /invite/activate), and only on accept, never
+			// on cancel or reject. The notifier never throws and isn't awaited, so a slow or down
+			// membership-management can't delay or fail the accept. Private invites are only consumed by
+			// a user whose email is in the invite, so `invitedUser.email` equals the invited address there;
+			// a public invite has no email, so fall back to the user's own, which is verified by now
+			// (`requireEmailVerification` means no session exists before that).
+			inviteHooks: {
+				afterAcceptInvite: async ({ invitation, invitedUser }) => {
+					void notifyInviteAccepted({ userId: invitedUser.id, email: invitation.email ?? invitedUser.email });
+				},
+			},
 			sendUserInvitation: async ({ email, role, token }, request) => {
 				// Deliberately ignoring the plugin-built `url` here (points at auth-server's own
 				// GET /invite/:token, which sets a cookie scoped to auth-server's origin - a confirmed
@@ -152,4 +166,3 @@ const authConfig = {
 } satisfies BetterAuthOptions;
 
 export const auth: ReturnType<typeof betterAuth<typeof authConfig>> = betterAuth(authConfig);
-
