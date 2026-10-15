@@ -21,8 +21,8 @@ Until it exists, test the notifier against a stub server you run yourself, not c
 
 | Stage | Status | Commit |
 | --- | --- | --- |
-| 1. Config for the membership API | [x] | (this commit) |
-| 2. Notifier | [ ] | |
+| 1. Config for the membership API | [x] | 0c0b329 |
+| 2. Notifier | [x] | (this commit) |
 | 3. Wire it to `afterAcceptInvite` | [ ] | |
 | 4. Docs | [ ] | |
 
@@ -34,6 +34,12 @@ Until it exists, test the notifier against a stub server you run yourself, not c
   notifier fails at startup. Added `MEMBERSHIP_API_TIMEOUT_MS` (default 3000); no existing timeout fit.
   The `.env.example` lines are commented out because an empty `MEMBERSHIP_API_URL=` would fail
   `z.url`. Checked by typecheck plus starting with the variables unset, only one set, and production.
+- Stage 2: tried against a throwaway stub server (not committed): 200, 500, a hanging server
+  (times out after `MEMBERSHIP_API_TIMEOUT_MS`), `abortPendingNotifications()` mid-request (rejects
+  immediately), connection refused, and unconfigured (debug log only). None throws; the log line has
+  the `userId` and the HTTP status or error code, never the token or the email. `shutdown.ts` aborts
+  pending requests first thing in the shutdown handler. The notifier does not import `shutdown.ts`
+  (it would be circular), so `shutdown.ts` imports it instead.
 - `pnpm exec biome check .` already fails on `main` (trailing blank line at the end of
   `src/lib/auth.ts`). Fixed in stage 3, which edits that file.
 
