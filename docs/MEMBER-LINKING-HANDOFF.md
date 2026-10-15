@@ -23,8 +23,8 @@ Until it exists, test the notifier against a stub server you run yourself, not c
 | --- | --- | --- |
 | 1. Config for the membership API | [x] | 0c0b329 |
 | 2. Notifier | [x] | 0017a42 |
-| 3. Wire it to `afterAcceptInvite` | [x] | (this commit) |
-| 4. Docs | [ ] | |
+| 3. Wire it to `afterAcceptInvite` | [x] | 1a49f72 |
+| 4. Docs | [x] | (this commit) |
 
 ### Decisions and deviations
 
