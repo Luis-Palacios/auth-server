@@ -123,6 +123,14 @@ Node 24 (`.nvmrc`) is the only runtime, in dev and in prod. Don't use Bun. There
     stays off.
   - Exit codes: `0` changed or already set, `1` failure at run time (not found, unverified, DB
     error), `2` usage error.
+- **Member linking notifier**: `src/lib/member-link-notifier.ts`. `afterAcceptInvite` (under
+  `inviteHooks` in `auth.ts`) calls `notifyInviteAccepted`, which POSTs `{ userId, email }` to
+  membership-management's `/internal/member-links/accepted-invite` with `X-Internal-Token`, so it can
+  link the user to the member with that email. Best-effort: one attempt, a timeout
+  (`MEMBERSHIP_API_TIMEOUT_MS`), never throws, logs only the `userId` and the status or error code,
+  and is aborted from `shutdown.ts`. `MEMBERSHIP_API_URL` and `INTERNAL_API_TOKEN` go through
+  `config.ts` like everything else: both required in production, both unset disables it in dev.
+  Never await it in the accept path.
 - **Docker image**: multi-stage `Dockerfile` (Alpine, Node and Alpine pinned exactly, non-root
   `node` user, exec-form `CMD` so node is PID 1 and gets SIGTERM). `.pnpmfile.cjs` drops
   better-auth's optional `drizzle-kit` peer, so `--prod` installs don't ship drizzle-kit/esbuild.
