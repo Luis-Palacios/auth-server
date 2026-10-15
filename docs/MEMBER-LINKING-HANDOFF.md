@@ -22,8 +22,8 @@ Until it exists, test the notifier against a stub server you run yourself, not c
 | Stage | Status | Commit |
 | --- | --- | --- |
 | 1. Config for the membership API | [x] | 0c0b329 |
-| 2. Notifier | [x] | (this commit) |
-| 3. Wire it to `afterAcceptInvite` | [ ] | |
+| 2. Notifier | [x] | 0017a42 |
+| 3. Wire it to `afterAcceptInvite` | [x] | (this commit) |
 | 4. Docs | [ ] | |
 
 ### Decisions and deviations
@@ -40,7 +40,18 @@ Until it exists, test the notifier against a stub server you run yourself, not c
   the `userId` and the HTTP status or error code, never the token or the email. `shutdown.ts` aborts
   pending requests first thing in the shutdown handler. The notifier does not import `shutdown.ts`
   (it would be circular), so `shutdown.ts` imports it instead.
-- `pnpm exec biome check .` already fails on `main` (trailing blank line at the end of
+- Stage 3, verified in better-invite 0.5.7's source (`dist/hooks.mjs`, `dist/routes/activate-invite.mjs`,
+  `dist/utils.mjs`): `afterAcceptInvite` runs only after `consumeInvite` succeeds, in both accept
+  paths: new account (an after-hook on sign-up, sign-in, verify-email and the like, with the user
+  re-read by `findUserById` from `newSession`, so `invitedUser.id` is the real persisted id) and an
+  already signed-in user via `POST /invite/activate`. It is never called for cancel or reject.
+  `consumeInvite` also throws if a private invite's email doesn't include `invitedUser.email`, so the
+  two emails agree for private invites; the fallback to `invitedUser.email` only matters for public ones.
+- Stage 3 deviation: the option is `inviteHooks: { afterAcceptInvite }`, not a top-level
+  `afterAcceptInvite` (that is how better-invite's types define it; the handoff's snippet was off).
+- Stage 3 not yet run live: an accepted invite against a running membership-management needs the
+  internal endpoint from that repo (and writes to the dev DB). Do it when that stage exists.
+- `pnpm exec biome check .` already failed on `main` (trailing blank line at the end of
   `src/lib/auth.ts`). Fixed in stage 3, which edits that file.
 
 ## Stage 1: Config
