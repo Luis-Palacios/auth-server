@@ -73,6 +73,13 @@ const envSchema = z
 		SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().positive().default(20_000),
 		RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().positive().default(10),
 		RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
+		// membership-management's base URL and the shared secret sent to it as X-Internal-Token (see
+		// src/lib/member-link-notifier.ts). Optional here so local dev works without that service: unset
+		// disables the notifier. The refines below make both required in production, and require them
+		// together whenever either is set, so a half-configured notifier fails at startup, not at runtime.
+		MEMBERSHIP_API_URL: z.url('MEMBERSHIP_API_URL must be a valid URL (see .env.example)').optional(),
+		INTERNAL_API_TOKEN: z.string().min(32, 'INTERNAL_API_TOKEN must be at least 32 characters').optional(),
+		MEMBERSHIP_API_TIMEOUT_MS: z.coerce.number().int().positive().default(3_000),
 		RESEND_API_KEY: z.string().min(1, 'RESEND_API_KEY must be set (see .env.example)'),
 		RESEND_FROM_EMAIL: z.string().min(1, 'RESEND_FROM_EMAIL must be set (see .env.example)'),
 		// Comma-separated IPs/CIDR ranges of the reverse proxies (load balancer, CDN) allowed to
@@ -87,6 +94,18 @@ const envSchema = z
 			.refine((entries) => entries.every(isValidProxyEntry), {
 				message: 'TRUSTED_PROXIES must be a comma-separated list of IPs or CIDR ranges (e.g. 10.0.0.0/16)',
 			}),
+	})
+	.refine((data) => data.NODE_ENV !== 'production' || data.MEMBERSHIP_API_URL !== undefined, {
+		message: 'MEMBERSHIP_API_URL must be set when NODE_ENV=production (see .env.example)',
+		path: ['MEMBERSHIP_API_URL'],
+	})
+	.refine((data) => data.NODE_ENV !== 'production' || data.INTERNAL_API_TOKEN !== undefined, {
+		message: 'INTERNAL_API_TOKEN must be set when NODE_ENV=production (see .env.example)',
+		path: ['INTERNAL_API_TOKEN'],
+	})
+	.refine((data) => (data.MEMBERSHIP_API_URL === undefined) === (data.INTERNAL_API_TOKEN === undefined), {
+		message: 'MEMBERSHIP_API_URL and INTERNAL_API_TOKEN must be set together (see .env.example)',
+		path: ['INTERNAL_API_TOKEN'],
 	})
 	.refine((data) => data.HEADERS_TIMEOUT_MS <= data.REQUEST_TIMEOUT_MS, {
 		message: 'HEADERS_TIMEOUT_MS must be <= REQUEST_TIMEOUT_MS (headers are part of the full request)',
@@ -109,6 +128,9 @@ const env = parsedEnv.data;
 // checks, OAuth callbacks, and the JWKS issuer. It says nothing about the port this process
 // listens on (behind an ALB it's https://host on 443 while we bind an unprivileged port) - that's PORT.
 const betterAuthUrl = new URL(env.BETTER_AUTH_URL);
+
+// Same trailing-slash stripping for the membership API base URL (`${base}/internal/...`).
+const membershipApiUrl = env.MEMBERSHIP_API_URL?.replace(/\/+$/, '');
 
 // Stripped of a trailing slash so string interpolation (`${config.staffAppUrl}/sign-up`) never
 // produces a double slash - see auth.ts's invite plugin config.
@@ -134,6 +156,9 @@ export const config = {
 	rateLimitWindowSeconds: env.RATE_LIMIT_WINDOW_SECONDS,
 	rateLimitMax: env.RATE_LIMIT_MAX,
 	trustedProxies: env.TRUSTED_PROXIES,
+	membershipApiUrl,
+	internalApiToken: env.INTERNAL_API_TOKEN,
+	membershipApiTimeoutMs: env.MEMBERSHIP_API_TIMEOUT_MS,
 	resendApiKey: env.RESEND_API_KEY,
 	resendFromEmail: env.RESEND_FROM_EMAIL,
 } as const;

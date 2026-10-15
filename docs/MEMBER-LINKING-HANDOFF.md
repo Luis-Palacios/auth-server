@@ -21,14 +21,21 @@ Until it exists, test the notifier against a stub server you run yourself, not c
 
 | Stage | Status | Commit |
 | --- | --- | --- |
-| 1. Config for the membership API | [ ] | |
+| 1. Config for the membership API | [x] | (this commit) |
 | 2. Notifier | [ ] | |
 | 3. Wire it to `afterAcceptInvite` | [ ] | |
 | 4. Docs | [ ] | |
 
 ### Decisions and deviations
 
-- (none yet)
+- Stage 1: "required in production, optional in dev" is `.optional()` fields in the zod object plus
+  three object-level `.refine`s (same style as the timeout checks): both required when
+  `NODE_ENV=production`, and set together or not at all in any environment. A half-configured
+  notifier fails at startup. Added `MEMBERSHIP_API_TIMEOUT_MS` (default 3000); no existing timeout fit.
+  The `.env.example` lines are commented out because an empty `MEMBERSHIP_API_URL=` would fail
+  `z.url`. Checked by typecheck plus starting with the variables unset, only one set, and production.
+- `pnpm exec biome check .` already fails on `main` (trailing blank line at the end of
+  `src/lib/auth.ts`). Fixed in stage 3, which edits that file.
 
 ## Stage 1: Config
 
