@@ -6,7 +6,7 @@ import { invite } from 'better-invite';
 import { db } from '../data/database.js';
 import * as schema from '../data/schemas/auth-schema.js';
 import { getLocale } from '../emails/locale.js';
-import { accessControl, roles } from '../permissions/statements.js';
+import { accessControl, permissionsFor, roles } from '../permissions/statements.js';
 import { config } from './config.js';
 import { sendInviteUserEmail, sendResetPasswordEmail, sendVerifyEmail } from './emails.js';
 import { notifyInviteAccepted } from './member-link-notifier.js';
@@ -72,14 +72,15 @@ const authConfig = {
 			defaultRole: 'pending',
 		}),
 		invite({
-			// Gates /invite/create and /invite/cancel against the same accessControl/statements.ts
-			// used everywhere else - checkPermissions (in better-invite's own source) forwards this
-			// straight to the admin plugin's userHasPermission endpoint, so admin/elder (the only
-			// roles with the `invites` statement - see statements.ts) are the only ones who can
-			// create or cancel an invite. Accepting an invite (canAcceptInvite) is left at its
-			// default (anyone can accept the invite addressed to them) - no reason to restrict that.
-			canCreateInvite: { statement: 'invites', permissions: ['create'] },
-			canCancelInvite: { statement: 'invites', permissions: ['cancel'] },
+			// Gates /invite/create and /invite/cancel on the `invites` statement (statements.ts), so only
+			// admin and elder can create or cancel an invite. Functions, not the `{ statement, permissions }`
+			// object form: better-invite 0.5.7's checkPermissions calls userHasPermission with
+			// `returnHeaders: true` and returns the `{ headers, response }` wrapper, which is always truthy,
+			// so the object form let any signed-in user (even `pending`) create an invite with any role.
+			// Cancel is also limited to the invite's creator by better-invite itself. Accepting an invite
+			// (canAcceptInvite) is left at its default: anyone can accept the invite addressed to them.
+			canCreateInvite: ({ inviterUser }) => permissionsFor(inviterUser.role).invites?.includes('create') ?? false,
+			canCancelInvite: ({ inviterUser }) => permissionsFor(inviterUser.role).invites?.includes('cancel') ?? false,
 			// How long the invite link itself stays valid before someone clicks it at all.
 			invitationTokenExpiresIn: 60 * 60 * 24 * 7, // 7 days
 			// How long the browser keeps the invite token (in a signed cookie) between clicking the

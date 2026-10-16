@@ -21,7 +21,8 @@ locally.
 
 | Stage | Status | Commit |
 | --- | --- | --- |
-| 1. Statements | [x] | (stage 1 commit) |
+| 1. Statements | [x] | a8bddc7 |
+| 1b. Fix invite create/cancel gating (found while verifying) | [x] | (fix commit) |
 | 2. Ship permissions | [ ] | |
 | 3. Docs | [ ] | |
 
@@ -32,6 +33,16 @@ locally.
   as before. `elder` = `appStatement` + the `user` actions from the table. **Elder loses `session:
   list, revoke, delete`**, which it only had because it spread `defaultStatements`; the spec's table
   doesn't list it and nothing in staff-app calls the session admin endpoints.
+- **Security fix found while verifying (own commit, before stage 2):** the invites gating never
+  worked. better-invite 0.5.7's `checkPermissions` (`dist/utils.mjs`) calls the admin plugin's
+  `userHasPermission` with `returnHeaders: true` and returns the `{ headers, response }` wrapper,
+  which is always truthy, so with the `{ statement, permissions }` option form **any signed-in user,
+  `pending` included, could create an invite with any role (e.g. `admin`)**, then sign up through it.
+  Reproduced on `main`. Now `canCreateInvite` / `canCancelInvite` are functions that check
+  `permissionsFor(inviterUser.role).invites`. Verified: admin and elder 200; smallGroupLeader,
+  deacon, user, pending get `400 INSUFFICIENT_PERMISSIONS`; elder cancelling their own invite 200.
+  Worth checking whether any invite was created on a real environment by a user who wasn't admin or
+  elder (`invite.created_by_user_id` joined to `user.role`). Worth reporting upstream too.
 - Stage 1: `permissionsFor` returns `Record<string, string[]>` (a `Permissions` type), not a
   resource-keyed type: the consumers are other repos reading JSON. Tried with a scratch script for
   every role plus `toString`, `''`, `null`, `undefined` (all `{}`), and that mutating the result
