@@ -23,8 +23,8 @@ locally.
 | --- | --- | --- |
 | 1. Statements | [x] | a8bddc7 |
 | 1b. Fix invite create/cancel gating (found while verifying) | [x] | 8385dee |
-| 2. Ship permissions | [x] | (stage 2 commit) |
-| 3. Docs | [ ] | |
+| 2. Ship permissions | [x] | 744c86f |
+| 3. Docs | [x] | (this commit) |
 
 ### Decisions and deviations
 

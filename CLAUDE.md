@@ -66,6 +66,15 @@ Node 24 (`.nvmrc`) is the only runtime, in dev and in prod. Don't use Bun. There
   and `DATABASE_URL` are read via `config`; `.env` is gitignored and never committed. Only the
   `dev` script loads `.env` (Node's `--env-file-if-exists`, real env vars win); app code must
   never load it (no `dotenv`), so production config comes from real env vars only.
+- **Roles and permissions** (`../docs/specs/roles-and-permissions.md`): `src/permissions/statements.ts`
+  is the only role → permission map in the system. `permissionsFor(role)` turns a role into its
+  statements (`{ resource: action[] }`, unknown/missing role → `{}`), and that one helper feeds both
+  the session (`customSession` adds `permissions` to `get-session` and to in-process
+  `auth.api.getSession`) and the JWT (`definePayload` adds `perms` next to `role`).
+  membership-management and staff-app check those permissions, never role names, so a role change
+  is a `statements.ts` change only. Invite create/cancel are gated with functions on
+  `permissionsFor(inviterUser.role)`; don't switch back to better-invite's `{ statement,
+  permissions }` form, which always passes in 0.5.7.
 - **API/HTTP**: `src/index.ts` mounts `auth.handler` on a [Hono](https://hono.dev/) app at
   `/api/auth/*` (all methods) and a `GET /health` route (`src/routes/health.ts` — debounced DB
   check plus connection-pool stats), served with `@hono/node-server` on `PORT`
