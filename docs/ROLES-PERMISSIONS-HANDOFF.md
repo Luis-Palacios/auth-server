@@ -21,10 +21,10 @@ locally.
 
 | Stage | Status | Commit |
 | --- | --- | --- |
-| 1. Statements | [x] | a8bddc7 |
-| 1b. Fix invite create/cancel gating (found while verifying) | [x] | 8385dee |
-| 2. Ship permissions | [x] | 744c86f |
-| 3. Docs | [x] | (this commit) |
+| 1. Statements | [x] | 0bc3c4b |
+| 1b. Fix invite create/cancel gating (found while verifying) | [x] | 5b84db9 |
+| 2. Ship permissions | [x] | d5390f9 |
+| 3. Docs | [x] | 8c10434 |
 
 ### Decisions and deviations
 
