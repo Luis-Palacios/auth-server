@@ -22,8 +22,8 @@ locally.
 | Stage | Status | Commit |
 | --- | --- | --- |
 | 1. Statements | [x] | a8bddc7 |
-| 1b. Fix invite create/cancel gating (found while verifying) | [x] | (fix commit) |
-| 2. Ship permissions | [ ] | |
+| 1b. Fix invite create/cancel gating (found while verifying) | [x] | 8385dee |
+| 2. Ship permissions | [x] | (stage 2 commit) |
 | 3. Docs | [ ] | |
 
 ### Decisions and deviations
@@ -47,6 +47,27 @@ locally.
   resource-keyed type: the consumers are other repos reading JSON. Tried with a scratch script for
   every role plus `toString`, `''`, `null`, `undefined` (all `{}`), and that mutating the result
   doesn't touch the role.
+- Stage 2, verified in better-auth 1.7.2's source: `customSession` registers its own `getSession`
+  endpoint, and plugin endpoints are spread after the core ones (`dist/api/index.mjs`), so it
+  replaces both `GET /get-session` and in-process `auth.api.getSession`. It calls the core
+  `getSession` and passes its result to our function, so `cookieCache` behaviour is unchanged (off
+  today; if turned on, `user.role`, and so `permissions`, would come from the cache for up to its
+  `maxAge`). The admin plugin, better-invite and the jwt `/token` endpoint read the session through
+  `getSessionFromCtx` / `sessionMiddleware`, not the endpoint, so they're unaffected. The jwt plugin's
+  `get-session` after-hook only sets `set-auth-jwt`, which is disabled (`disableSettingJwtHeader`).
+- Stage 2: the config is split into `baseConfig` and `authConfig` (= `baseConfig` + `customSession`)
+  because `customSession` takes the rest of the options as its second argument to type `user.role`.
+- Stage 2 verification, against a throwaway database (`ekklesiaio-auth-rp-verify`, dropped after)
+  with the server on port 5055, a dummy Resend key and the notifier off: one user per role signed
+  up over HTTP, then verified and given the role by SQL in that database only. For every role:
+  `get-session` keys are `user, session, permissions` and `permissions` matches the table; the
+  `/token` payload keys are `iat, role, perms, sub, exp, iss, aud` and `perms` equals the session's
+  `permissions`; `user` and `pending` get `{}`. `/api/custom-auth/invites`, `/admin/get-user` (elder
+  now 200) and `/admin/list-users`: 200 for admin and elder, 403 for the rest. `invite/create`: 200
+  admin/elder, 400 the rest. Role changed by SQL mid-session (deacon → user): the next `get-session`
+  and the next `/token` show `user` / `{}` with the same cookie. Signed out: `get-session` is `null`.
+  In-process `auth.api.getSession` (as in `invites.ts` and `sendUserInvitation`) returns `user.name`,
+  `user.role` and `permissions`.
 
 ## Stage 1: Statements
 
