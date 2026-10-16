@@ -1,53 +1,60 @@
 import { createAccessControl } from 'better-auth/plugins/access';
 import { adminAc, defaultStatements } from 'better-auth/plugins/admin/access';
 
-const statement = {
-	...defaultStatements,
-	// Only `admin` and `elder` get this — both spread `...statement` directly into their role, so
-	// they pick it up automatically. `smallGroupLeader`/`deacon`/`user`/`pending` build their own
-	// literal statement objects below and don't spread `statement`, so they never see this key.
-	dashboard: ['view'],
-	persons: ['create', 'view', 'update', 'delete', 'search'],
-	membershipApplications: ['create', 'view', 'update', 'delete', 'approve', 'reject'],
-	smallGroups: ['create', 'view', 'update', 'delete'],
-	smallGroupsReport: ['create', 'view', 'update', 'delete'],
+// The only role -> permission map in the system (roles-and-permissions spec, rule 1). Other services
+// never check role names: they read the computed permissions from the session (`permissions`) or
+// the JWT (`perms`), both built by permissionsFor() below.
+//
+// `all` (members, smallGroups) lifts the caller's scope: with it the other actions apply to every
+// record, without it only to the caller's own groups and their active members. The scope itself is
+// enforced by membership-management. smallGroupReports follows the smallGroups scope.
+const appStatement = {
+	members: ['all', 'view', 'search', 'create', 'update', 'link'],
+	membershipApplications: ['view', 'approve', 'reject'],
+	smallGroups: ['all', 'view', 'create', 'update', 'close', 'setLeader', 'manageMembers'],
+	smallGroupReports: ['view', 'create', 'update', 'delete', 'viewObservations'],
 	invites: ['create', 'cancel'],
-};
+} as const;
+
+const statement = {
+	...defaultStatements, // better-auth's own `user` / `session`, used by the admin plugin
+	...appStatement,
+} as const;
 
 export const accessControl = createAccessControl(statement);
 
-// No statements spread in — this role grants no permissions on anything. It's the admin
-// plugin's `defaultRole` (see src/lib/auth.ts), so a freshly signed-up account can authenticate
-// but can't do anything until an admin assigns a real role.
+// No statements: this role grants nothing. It's the admin plugin's `defaultRole` (see
+// src/lib/auth.ts), so a freshly signed-up account can authenticate but can't do anything until an
+// admin or elder assigns a real role.
 export const pending = accessControl.newRole({});
 
 export const admin = accessControl.newRole({
-	...statement,
-	// adminAc.statements (better-auth's own built-in admin role), spread last so it overrides
-	// `statement`'s raw `...defaultStatements` on the `user`/`session` keys specifically —
-	// adminAc deliberately excludes `impersonate-admins` from the full defaultStatements list,
-	// so admins can manage other admins' accounts (ban/set-role/set-password/etc.) without being
-	// able to impersonate them.
+	...appStatement,
+	// better-auth's own built-in admin role. It deliberately leaves out `impersonate-admins`, so admins
+	// can manage other admins' accounts (ban/set-role/set-password/etc.) without impersonating them.
 	...adminAc.statements,
 });
 
+export const elder = accessControl.newRole({
+	...appStatement,
+	// `get` is needed by /admin/get-user (staff-app's /users/[id]).
+	user: ['create', 'list', 'get', 'ban', 'set-role'],
+});
+
+// Signed in, no permissions. The baseline for regular members later.
 export const user = accessControl.newRole({});
 
 export const smallGroupLeader = accessControl.newRole({
-	persons: ['search'],
-	smallGroups: ['view', 'update'],
-	smallGroupsReport: ['create', 'view', 'update', 'delete'],
+	members: ['view', 'search', 'update'],
+	smallGroups: ['view', 'update', 'manageMembers'],
+	smallGroupReports: ['view', 'create', 'update', 'delete'],
 });
 
+// Same as smallGroupLeader for now. A separate role so it can grow on its own.
 export const deacon = accessControl.newRole({
-	persons: ['search'],
-	smallGroups: ['view', 'update'],
-	smallGroupsReport: ['create', 'view', 'update', 'delete'],
-});
-
-export const elder = accessControl.newRole({
-	...statement,
-	user: ['create', 'list', 'ban', 'set-role'],
+	members: ['view', 'search', 'update'],
+	smallGroups: ['view', 'update', 'manageMembers'],
+	smallGroupReports: ['view', 'create', 'update', 'delete'],
 });
 
 // Every role the admin plugin accepts (src/lib/auth.ts) and the only valid values for user.role.
@@ -61,3 +68,19 @@ export const roles = {
 	pending,
 	elder,
 };
+
+export type Permissions = Record<string, string[]>;
+
+// A role's statements as declared, `{ resource: actions[] }`. Shipped as `permissions` in the session
+// and `perms` in the JWT, so both always agree. Unknown or missing role -> `{}` (fail closed).
+// Returns a copy, so callers can't mutate a role's statements.
+export function permissionsFor(role: string | null | undefined): Permissions {
+	// Not `role in roles`: `in` walks the prototype chain, so "toString" would pass.
+	if (!role || !Object.hasOwn(roles, role)) return {};
+	const statements: Record<string, readonly string[] | undefined> = roles[role as keyof typeof roles].statements;
+	const permissions: Permissions = {};
+	for (const [resource, actions] of Object.entries(statements)) {
+		if (actions) permissions[resource] = [...actions];
+	}
+	return permissions;
+}
