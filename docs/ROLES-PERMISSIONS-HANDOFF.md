@@ -21,13 +21,21 @@ locally.
 
 | Stage | Status | Commit |
 | --- | --- | --- |
-| 1. Statements | [ ] | |
+| 1. Statements | [x] | (stage 1 commit) |
 | 2. Ship permissions | [ ] | |
 | 3. Docs | [ ] | |
 
 ### Decisions and deviations
 
-- (none yet)
+- Stage 1: app resources live in `appStatement`; `statement` (passed to `createAccessControl`) is
+  `defaultStatements` + `appStatement`. `admin` = `appStatement` + `adminAc.statements`, the same set
+  as before. `elder` = `appStatement` + the `user` actions from the table. **Elder loses `session:
+  list, revoke, delete`**, which it only had because it spread `defaultStatements`; the spec's table
+  doesn't list it and nothing in staff-app calls the session admin endpoints.
+- Stage 1: `permissionsFor` returns `Record<string, string[]>` (a `Permissions` type), not a
+  resource-keyed type: the consumers are other repos reading JSON. Tried with a scratch script for
+  every role plus `toString`, `''`, `null`, `undefined` (all `{}`), and that mutating the result
+  doesn't touch the role.
 
 ## Stage 1: Statements
 
