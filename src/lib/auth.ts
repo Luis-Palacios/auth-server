@@ -1,6 +1,6 @@
 import { drizzleAdapter } from '@better-auth/drizzle-adapter/relations-v2';
 import { type BetterAuthOptions, type BetterAuthPlugin, betterAuth } from 'better-auth';
-import { jwt, openAPI } from 'better-auth/plugins';
+import { customSession, jwt, openAPI } from 'better-auth/plugins';
 import { admin as adminPlugin } from 'better-auth/plugins/admin';
 import { invite } from 'better-invite';
 import { db } from '../data/database.js';
@@ -11,7 +11,7 @@ import { config } from './config.js';
 import { sendInviteUserEmail, sendResetPasswordEmail, sendVerifyEmail } from './emails.js';
 import { notifyInviteAccepted } from './member-link-notifier.js';
 
-const authConfig = {
+const baseConfig = {
 	secret: config.betterAuthSecret,
 	// Passed explicitly so better-auth uses the validated value rather than reading
 	// process.env.BETTER_AUTH_URL itself. Its origin is always trusted for CSRF/redirect checks.
@@ -154,15 +154,26 @@ const authConfig = {
 				jwksPath: '/.well-known/jwks.json',
 			},
 			jwt: {
-				// Only `role` goes in the payload (see AUTH-INTEGRATION-ROADMAP.md's Phase 4/"Role vs
-				// permission" notes) - not the full user row, which is definePayload's default when
-				// unset (verified live: it was leaking name/email/ban status/etc. before this change).
-				// `sub` (user id) is set separately by better-auth itself, so it doesn't need to be
-				// returned here.
-				definePayload: ({ user }) => ({ role: user.role }),
+				// Only `role` and the role's computed permissions (`perms`, same shape as the session's
+				// `permissions` - see statements.ts) go in the payload, not the full user row, which is
+				// definePayload's default when unset (it leaked name/email/ban status/etc.). APIs check
+				// `perms`, never `role`. `sub` (user id) is set by better-auth itself.
+				definePayload: ({ user }) => ({ role: user.role, perms: permissionsFor(user.role) }),
 			},
 		}),
 		openAPI(),
+	],
+} satisfies BetterAuthOptions;
+
+const authConfig = {
+	...baseConfig,
+	plugins: [
+		...baseConfig.plugins,
+		// Adds the role's computed permissions to GET /api/auth/get-session, next to `user` and
+		// `session`. It replaces the getSession endpoint, so in-process auth.api.getSession callers get
+		// this shape too and still read `.user`. Computed from user.role on every read (cookieCache is
+		// off), so a role change shows on the next request. `baseConfig` is passed only for typing.
+		customSession(async ({ user, session }) => ({ user, session, permissions: permissionsFor(user.role) }), baseConfig),
 	],
 } satisfies BetterAuthOptions;
 
