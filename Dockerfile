@@ -18,8 +18,13 @@ FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS base
 WORKDIR /usr/src/app
 
 # Install pnpm. Only the build stages need it: the runtime stage starts from a fresh base.
+# An ARG declared before FROM is only visible to FROM lines; without redeclaring it here,
+# pnpm@${PNPM_VERSION} would be pnpm@ (latest).
+# pnpm's install script swaps in its native binary. Allow it by name: npm 11 warns about unlisted
+# install scripts, npm 12 blocks them.
+ARG PNPM_VERSION
 RUN --mount=type=cache,target=/root/.npm \
-    npm install -g pnpm@${PNPM_VERSION}
+    npm install -g --allow-scripts=pnpm pnpm@${PNPM_VERSION}
 
 ################################################################################
 # Create a stage for installing production dependencies.
