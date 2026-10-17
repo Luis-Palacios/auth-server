@@ -35,17 +35,23 @@ async function checkDatabase(): Promise<'up' | 'down'> {
 	return result;
 }
 
-export const healthRoute = new Hono().get('/', async (c) => {
-	// Report "not ready" as soon as shutdown starts, without querying the DB: the pool is about to close.
-	if (isShuttingDown()) return c.json({ status: 'shutting_down' }, 503);
-	const dbStatus = await checkDatabase();
-	const poolStatus = {
-		total: pool.totalCount,
-		idle: pool.idleCount,
-		waiting: pool.waitingCount,
-		max: config.dbPoolMax,
-	};
+// Liveness for the container healthcheck (compose, ECS): answers as long as the process does.
+// Deliberately touches no DB: when it fails, the orchestrator kills and replaces the task, and a
+// restart can't fix a DB outage. It stays 200 while shutting down, since the orchestrator already
+// sent the signal; reporting "draining" is the readiness check's job (`/` below).
+export const healthRoute = new Hono()
+	.get('/live', (c) => c.json({ status: 'ok' }))
+	.get('/', async (c) => {
+		// Report "not ready" as soon as shutdown starts, without querying the DB: the pool is about to close.
+		if (isShuttingDown()) return c.json({ status: 'shutting_down' }, 503);
+		const dbStatus = await checkDatabase();
+		const poolStatus = {
+			total: pool.totalCount,
+			idle: pool.idleCount,
+			waiting: pool.waitingCount,
+			max: config.dbPoolMax,
+		};
 
-	if (dbStatus === 'up') return c.json({ status: 'ok', db: 'up', pool: poolStatus });
-	return c.json({ status: 'error', db: 'down', pool: poolStatus }, 503);
-});
+		if (dbStatus === 'up') return c.json({ status: 'ok', db: 'up', pool: poolStatus });
+		return c.json({ status: 'error', db: 'down', pool: poolStatus }, 503);
+	});

@@ -77,7 +77,8 @@ Node 24 (`.nvmrc`) is the only runtime, in dev and in prod. Don't use Bun. There
   permissions }` form, which always passes in 0.5.7.
 - **API/HTTP**: `src/index.ts` mounts `auth.handler` on a [Hono](https://hono.dev/) app at
   `/api/auth/*` (all methods) and a `GET /health` route (`src/routes/health.ts` — debounced DB
-  check plus connection-pool stats), served with `@hono/node-server` on `PORT`
+  check plus connection-pool stats; `GET /health/live` is the no-DB liveness check for container
+  healthchecks), served with `@hono/node-server` on `PORT`
   (default 5000, independent of `BETTER_AUTH_URL`, which is the public URL). Origins are two separate settings: `TRUSTED_ORIGINS` feeds better-auth's
   `trustedOrigins` (CSRF and redirect checks; `BETTER_AUTH_URL`'s origin is always trusted, so it's
   empty in prod), and `CORS_ORIGINS` mounts `hono/cors` only when non-empty (no browser calls this

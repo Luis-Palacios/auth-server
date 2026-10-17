@@ -91,6 +91,7 @@ Running `pnpm dev` (or `pnpm start` after a build) starts a Hono server (listeni
 - `/api/auth/*` — Better Auth's own routes (sign-up, sign-in, sessions, admin endpoints, etc.)
 - `/api/auth/.well-known/jwks.json` — JWKS endpoint from the `jwt` plugin
 - `/api/auth/reference` — interactive OpenAPI docs from the `openAPI` plugin
-- `/health` — liveness/readiness check: runs a debounced query through the DB pool and reports
-  `db: 'up'|'down'` (503 on failure) plus pool stats; intended for Docker's `HEALTHCHECK` and any
-  future load balancer/orchestrator
+- `/health` — readiness/diagnostic check: runs a debounced query through the DB pool and reports
+  `db: 'up'|'down'` (503 on failure or while shutting down) plus pool stats
+- `/health/live` — liveness check for container healthchecks (Docker, compose, ECS): touches no DB,
+  so a DB outage doesn't get the container restarted in a loop; 200 while the process answers
