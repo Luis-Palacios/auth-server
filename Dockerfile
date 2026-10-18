@@ -68,6 +68,22 @@ WORKDIR /usr/src/app
 # Use production node environment by default.
 ENV NODE_ENV=production
 
+# Amazon RDS CA bundle. The prod DATABASE_URL ends in
+# ?sslmode=verify-full&sslrootcert=/etc/ssl/rds/global-bundle.pem, and Node's CA store doesn't
+# include the RDS CA, so without this file the app, migrate.js and set-role.js can't connect.
+# pg-connection-string reads it when the URL is parsed; URLs without sslrootcert (local dev,
+# compose) never touch it. Same path in membership-management's image, outside WORKDIR.
+# Owned by root (ADD ignores USER) and 0644: the node user can read it but not change it. A remote
+# ADD defaults to 0600, which node couldn't read. The directory is made first because ADD would
+# create it with the same --chmod (0644, no x), and node couldn't enter it.
+# --checksum needs dockerfile syntax 1.6+ (the directive above follows the latest 1.x). When AWS
+# updates the bundle, an uncached build fails on the checksum. Check the change is AWS's, then:
+#   curl -fsS https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem | shasum -a 256
+# and paste the new hash here (and in membership-management's Dockerfile).
+RUN mkdir -p /etc/ssl/rds
+ADD --checksum=sha256:90a6f1a7978a1b1b096dca6c57511ca48d3b8cf052f8e704baf358f34ea2f21b --chmod=644 \
+    https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem /etc/ssl/rds/global-bundle.pem
+
 # Run the application as a non-root user. Files copied below stay owned by root, so the app can
 # read its own code but not modify it.
 USER node

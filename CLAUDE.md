@@ -145,6 +145,9 @@ Node 24 (`.nvmrc`) is the only runtime, in dev and in prod. Don't use Bun. There
   `node` user, exec-form `CMD` so node is PID 1 and gets SIGTERM). `.pnpmfile.cjs` drops
   better-auth's optional `drizzle-kit` peer, so `--prod` installs don't ship drizzle-kit/esbuild.
   The lockfile records its checksum, so the Dockerfile has to bind-mount it in both install steps.
+  The final stage ships the Amazon RDS CA bundle at `/etc/ssl/rds/global-bundle.pem` (checksum
+  pinned; the prod `DATABASE_URL` uses `sslmode=verify-full&sslrootcert=` that path). Keep the path
+  in step with membership-management's image.
 - **Module system**: ESM throughout (`"type": "module"` in `package.json`), TypeScript compiled
   with `module: nodenext` / `target: esnext`. `verbatimModuleSyntax` and `isolatedModules` are on,
   so use explicit `import type` for type-only imports. Relative imports use `.js` specifiers
