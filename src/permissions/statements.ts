@@ -18,9 +18,17 @@ const appStatement = {
 	ownProfile: ['update'],
 } as const;
 
+// Kept out of `appStatement` on purpose: elder spreads that, and this must stay admin-only. Holding
+// it means "is an admin account": only such a caller can change the role of, assign a role to, or
+// ban another one (user-admin-actions spec, rule 5; enforced by src/lib/admin-guard.ts).
+const adminAccountsStatement = {
+	adminAccounts: ['manage'],
+} as const;
+
 const statement = {
 	...defaultStatements, // better-auth's own `user` / `session`, used by the admin plugin
 	...appStatement,
+	...adminAccountsStatement,
 } as const;
 
 export const accessControl = createAccessControl(statement);
@@ -32,6 +40,7 @@ export const pending = accessControl.newRole({});
 
 export const admin = accessControl.newRole({
 	...appStatement,
+	...adminAccountsStatement,
 	// better-auth's own built-in admin role. It deliberately leaves out `impersonate-admins`, so admins
 	// can manage other admins' accounts (ban/set-role/set-password/etc.) without impersonating them.
 	...adminAc.statements,

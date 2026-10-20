@@ -7,6 +7,7 @@ import { db } from '../data/database.js';
 import * as schema from '../data/schemas/auth-schema.js';
 import { getLocale } from '../emails/locale.js';
 import { accessControl, permissionsFor, roles } from '../permissions/statements.js';
+import { adminGuard } from './admin-guard.js';
 import { config } from './config.js';
 import { sendInviteUserEmail, sendResetPasswordEmail, sendVerifyEmail } from './emails.js';
 import { notifyInviteAccepted } from './member-link-notifier.js';
@@ -63,6 +64,8 @@ const baseConfig = {
 			trustedProxies: config.trustedProxies,
 		},
 	},
+	// Rules 5-7 of the user-admin-actions spec: who may change whose role or ban whom.
+	hooks: { before: adminGuard },
 	plugins: [
 		adminPlugin({
 			ac: accessControl,
