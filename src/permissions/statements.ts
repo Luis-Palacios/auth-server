@@ -14,6 +14,8 @@ const appStatement = {
 	smallGroups: ['all', 'view', 'create', 'update', 'close', 'setLeader', 'manageMembers'],
 	smallGroupReports: ['view', 'create', 'update', 'delete', 'viewObservations'],
 	invites: ['create', 'cancel'],
+	// Edit the caller's own linked member (name, phone, address, birth date, sex). Every role but `pending`.
+	ownProfile: ['update'],
 } as const;
 
 const statement = {
@@ -41,11 +43,14 @@ export const elder = accessControl.newRole({
 	user: ['create', 'list', 'get', 'ban', 'set-role'],
 });
 
-// Signed in, no permissions. The baseline for regular members later.
-export const user = accessControl.newRole({});
+// Signed in; can edit only their own member profile. The baseline for regular members later.
+export const user = accessControl.newRole({
+	ownProfile: ['update'],
+});
 
 export const smallGroupLeader = accessControl.newRole({
 	members: ['view', 'search', 'update'],
+	ownProfile: ['update'],
 	smallGroups: ['view', 'update', 'manageMembers'],
 	smallGroupReports: ['view', 'create', 'update', 'delete'],
 });
@@ -53,6 +58,7 @@ export const smallGroupLeader = accessControl.newRole({
 // Same as smallGroupLeader for now. A separate role so it can grow on its own.
 export const deacon = accessControl.newRole({
 	members: ['view', 'search', 'update'],
+	ownProfile: ['update'],
 	smallGroups: ['view', 'update', 'manageMembers'],
 	smallGroupReports: ['view', 'create', 'update', 'delete'],
 });
