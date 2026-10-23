@@ -17,11 +17,14 @@ staff-app (the Guests menu, adding guests). This is the first stage of the featu
 
 | Stage | Status | Commit |
 | --- | --- | --- |
-| 1. `guests` statement and roles | ⬜ | |
+| 1. `guests` statement and roles | ✅ | see `git log` on `guest-small-groups` |
 
 ### Decisions and deviations
 
-- (fill in while implementing)
+- Checked with `tsx` calling `permissionsFor` for every role: `guests` is the five actions for admin
+  and elder, the four (no `all`) for smallGroupLeader and deacon, and absent for `user`, `pending`,
+  a missing role, an unknown role and `"toString"`. `pnpm typecheck` and `pnpm exec biome check .`
+  pass. No live session or decoded token checked.
 
 ## Stage 1: `guests` statement and roles
 

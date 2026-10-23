@@ -5,14 +5,16 @@ import { adminAc, defaultStatements } from 'better-auth/plugins/admin/access';
 // never check role names: they read the computed permissions from the session (`permissions`) or
 // the JWT (`perms`), both built by permissionsFor() below.
 //
-// `all` (members, smallGroups) lifts the caller's scope: with it the other actions apply to every
-// record, without it only to the caller's own groups and their active members. The scope itself is
-// enforced by membership-management. smallGroupReports follows the smallGroups scope.
+// `all` (members, smallGroups, guests) lifts the caller's scope: with it the other actions apply to every
+// record, without it only to the caller's own groups and their active members (for guests: the guests
+// in the guest groups they lead). The scope itself is enforced by membership-management.
+// smallGroupReports follows the smallGroups scope. There is no `guests: delete` on purpose.
 const appStatement = {
 	members: ['all', 'view', 'search', 'create', 'update', 'link'],
 	membershipApplications: ['view', 'approve', 'reject'],
 	smallGroups: ['all', 'view', 'create', 'update', 'close', 'setLeader', 'manageMembers'],
 	smallGroupReports: ['view', 'create', 'update', 'delete', 'viewObservations'],
+	guests: ['all', 'view', 'search', 'create', 'update'],
 	invites: ['create', 'cancel'],
 	// Edit the caller's own linked member (name, phone, address, birth date, sex). Every role but `pending`.
 	ownProfile: ['update'],
@@ -59,6 +61,7 @@ export const user = accessControl.newRole({
 
 export const smallGroupLeader = accessControl.newRole({
 	members: ['view', 'search', 'update'],
+	guests: ['view', 'search', 'create', 'update'],
 	ownProfile: ['update'],
 	smallGroups: ['view', 'update', 'manageMembers'],
 	smallGroupReports: ['view', 'create', 'update', 'delete'],
@@ -67,6 +70,7 @@ export const smallGroupLeader = accessControl.newRole({
 // Same as smallGroupLeader for now. A separate role so it can grow on its own.
 export const deacon = accessControl.newRole({
 	members: ['view', 'search', 'update'],
+	guests: ['view', 'search', 'create', 'update'],
 	ownProfile: ['update'],
 	smallGroups: ['view', 'update', 'manageMembers'],
 	smallGroupReports: ['view', 'create', 'update', 'delete'],
