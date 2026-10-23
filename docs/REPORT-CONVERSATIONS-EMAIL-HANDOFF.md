@@ -1,5 +1,11 @@
 # Report conversations, Part 2: conversation emails (auth-server)
 
+> **Read first (added Oct 2026):** this Part 2 handoff was written before section threads.
+> **Prayer & follow-up** (`docs/specs/prayer-follow-up.md`) ships first and adds conversations about a
+> report section (prayer, praise, follow-up), not only about a person. Before starting Part 2, apply
+> that spec's *Changes for report conversations Part 2* here (stages 2–3: the `topic` field, a section variant of the new-conversation body, `?section=` paths). Part 2 still comes next,
+> slowly, one change at a time, as described below.
+
 Handoff spec for the auth-server side of **conversation emails**: membership-management decides who
 gets an email and when; auth-server looks up the recipient, renders the email in their language and
 sends it through Resend. Cross-repo rules: `../docs/specs/report-conversations.md` (*Contracts
