@@ -19,11 +19,14 @@ the feature in any repo.
 
 | Stage | Status | Commit |
 | --- | --- | --- |
-| 1. `members: setStatus` | ⬜ | |
+| 1. `members: setStatus` | ✅ | see `git log` |
 
 ### Decisions and deviations
 
-- [Fill in after the stage: how it was checked.]
+- Checked by calling `permissionsFor` with `tsx` for every role: `members` includes `setStatus` for
+  admin and elder; smallGroupLeader and deacon stay at `view, search, update`; `members` is absent
+  for `user`, `pending`, a missing role and `"toString"`. `pnpm typecheck` and `biome check .` pass.
+  No live session or decoded token was checked.
 
 ## Stage 1: `members: setStatus`
 
