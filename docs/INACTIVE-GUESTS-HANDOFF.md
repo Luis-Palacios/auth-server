@@ -19,11 +19,14 @@ and add*). This is the first stage of the feature in any repo.
 
 | Stage | Status | Commit |
 | --- | --- | --- |
-| 1. `guests: deactivate` and `guests: reactivate` | ⬜ | |
+| 1. `guests: deactivate` and `guests: reactivate` | ✅ | see `git log` |
 
 ### Decisions and deviations
 
-- (none yet)
+- Checked by calling `permissionsFor` with `tsx` for every role: `guests` includes `deactivate` and
+  `reactivate` for admin and elder; `reactivate` but not `deactivate` for smallGroupLeader and deacon;
+  `guests` is absent for `user`, `pending`, a missing role, `null` and `"toString"`. `pnpm typecheck`
+  and `biome check .` pass. No live session or decoded token was checked.
 
 ## Stage 1: `guests: deactivate` and `guests: reactivate`
 

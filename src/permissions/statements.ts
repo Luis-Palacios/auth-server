@@ -16,7 +16,11 @@ const appStatement = {
 	membershipApplications: ['view', 'approve', 'reject'],
 	smallGroups: ['all', 'view', 'create', 'update', 'close', 'setLeader', 'manageMembers'],
 	smallGroupReports: ['view', 'create', 'update', 'delete', 'viewObservations'],
-	guests: ['all', 'view', 'search', 'create', 'update'],
+	// `deactivate` marks a guest inactive and is also what lets a caller see the reason, note and status
+	// history on Guest detail (inactive-guests spec, rules 4 and 9). `reactivate` brings one back; leaders
+	// have it so they can reactivate a returning guest while adding them to their group (rule 6). There's
+	// no `setStatus` here on purpose: unlike members, the two sides go to different roles.
+	guests: ['all', 'view', 'search', 'create', 'update', 'deactivate', 'reactivate'],
 	invites: ['create', 'cancel'],
 	// Edit the caller's own linked member (name, phone, address, birth date, sex). Every role but `pending`.
 	ownProfile: ['update'],
@@ -63,7 +67,7 @@ export const user = accessControl.newRole({
 
 export const smallGroupLeader = accessControl.newRole({
 	members: ['view', 'search', 'update'],
-	guests: ['view', 'search', 'create', 'update'],
+	guests: ['view', 'search', 'create', 'update', 'reactivate'],
 	ownProfile: ['update'],
 	smallGroups: ['view', 'update', 'manageMembers'],
 	smallGroupReports: ['view', 'create', 'update', 'delete'],
@@ -72,7 +76,7 @@ export const smallGroupLeader = accessControl.newRole({
 // Same as smallGroupLeader for now. A separate role so it can grow on its own.
 export const deacon = accessControl.newRole({
 	members: ['view', 'search', 'update'],
-	guests: ['view', 'search', 'create', 'update'],
+	guests: ['view', 'search', 'create', 'update', 'reactivate'],
 	ownProfile: ['update'],
 	smallGroups: ['view', 'update', 'manageMembers'],
 	smallGroupReports: ['view', 'create', 'update', 'delete'],
