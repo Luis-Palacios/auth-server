@@ -12,6 +12,9 @@ import { config } from './config.js';
 import { sendInviteUserEmail, sendResetPasswordEmail, sendVerifyEmail } from './emails.js';
 import { notifyInviteAccepted } from './member-link-notifier.js';
 
+// Requests to /get-session or /token from one IP before a 429; see rateLimit below.
+const SESSION_READ_RATE_LIMIT_MAX = 300;
+
 const baseConfig = {
 	secret: config.betterAuthSecret,
 	// Passed explicitly so better-auth uses the validated value rather than reading
@@ -50,9 +53,21 @@ const baseConfig = {
 	// better-auth already applies its own tighter built-in rules to sign-in/sign-up/password-reset
 	// regardless of these values (3 requests per 10-60s - see its rate-limiter source), so no
 	// customRules are needed for the brute-force-prone endpoints specifically.
+	//
+	// "max per window" is not a rate here. Each allowed request moves the window forward, so an IP's
+	// count (kept per path) only resets after a full window with no allowed request: `max` requests
+	// with no such pause get a 429, however slowly they arrive (better-auth 1.7.2's decideConsume).
+	// /get-session and /token get a higher max because every staff-app page load and server action
+	// calls them, and everyone behind one IP (church Wi-Fi) shares the count. They stay limited, not
+	// exempt: get-session hits the database on every call and browsers can reach it too. Keys are
+	// exact matches on the path without /api/auth or a trailing slash, as the limiter normalizes it.
 	rateLimit: {
 		window: config.rateLimitWindowSeconds,
 		max: config.rateLimitMax,
+		customRules: {
+			'/get-session': { window: config.rateLimitWindowSeconds, max: SESSION_READ_RATE_LIMIT_MAX },
+			'/token': { window: config.rateLimitWindowSeconds, max: SESSION_READ_RATE_LIMIT_MAX },
+		},
 	},
 	// Which hops in X-Forwarded-For are our own infrastructure (see TRUSTED_PROXIES in config.ts).
 	// With a non-empty list better-auth reads the header right to left, skips these, and keys rate
