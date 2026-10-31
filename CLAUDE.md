@@ -60,7 +60,9 @@ Node 24 (`.nvmrc`) is the only runtime, in dev and in prod. Don't use Bun. There
 - **Auth**: built on [`better-auth`](https://www.better-auth.com/), configured in
   `src/lib/auth.ts` via `betterAuth(...)` with a Drizzle/PostgreSQL adapter, rate limiting
   (`rateLimit.window`/`.max`, tunable via `RATE_LIMIT_WINDOW_SECONDS`/`RATE_LIMIT_MAX` — enabled
-  only when `NODE_ENV=production`, which is better-auth's own default and not overridden here),
+  only when `NODE_ENV=production`, which is better-auth's own default and not overridden here;
+  `customRules` raises the max to 300 for `/get-session` and `/token`, and the count only resets
+  after a full window with no allowed request, so it isn't a per-window rate),
   and the `admin`, `jwt` (JWKS served at `/.well-known/jwks.json`), and `openAPI` plugins.
   `BETTER_AUTH_SECRET` (32+ chars, high entropy — `openssl rand -base64 32`), `BETTER_AUTH_URL`,
   and `DATABASE_URL` are read via `config`; `.env` is gitignored and never committed. Only the
