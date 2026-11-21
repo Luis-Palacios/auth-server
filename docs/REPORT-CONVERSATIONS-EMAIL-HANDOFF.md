@@ -50,10 +50,10 @@ templates previewed with `pnpm email:dev`.
 
 | Stage | Status | Commit |
 | --- | --- | --- |
-| 0. Handoff updated to the Nov 2026 design | ✅ | (this commit) |
-| 1. Recipient language: `locale` on the user | ✅ | (this commit) |
-| 2. Templates: new conversation, new reply (en/es, all variants) | ✅ | (this commit) |
-| 3. Internal auth, `notification_sends`, `POST /internal/notifications`, purge timer | ⬜ | |
+| 0. Handoff updated to the Nov 2026 design | ✅ | `ae18d1b` |
+| 1. Recipient language: `locale` on the user | ✅ | `4700581` |
+| 2. Templates: new conversation, new reply (en/es, all variants) | ✅ | `5202079` |
+| 3. Internal auth, `notification_sends`, `POST /internal/notifications`, purge timer | ✅ | (this commit) |
 | 4. User routes: `with-permission`, `permissions` | ⬜ | |
 | 5. Docs | ⬜ | |
 
@@ -109,6 +109,53 @@ templates previewed with `pnpm email:dev`.
 - Stage 2 checks: every combination (new × `startedBy` × `topic`, reply × `reason`, 22 with both
   languages) rendered as plain text against the copy table, and previewed in `pnpm email:dev`
   (temporary preview files, not committed) at desktop and 375 px.
+- Stage 3 files: `src/routes/internal/{auth,index,notifications}.ts`,
+  `src/notifications/{templates.tsx,request-hash,recipient,send,purge}.ts`,
+  `src/data/schemas/notification-sends.ts` (migration `drizzle/20261121184235_huge_absorbing_man`).
+  `emails.tsx` now exports `resend` and `emailFrom` (one client, one sender); `locale.ts` exports
+  `isLocale`.
+- Stage 3: the token is compared as **SHA-256 digests** with `timingSafeEqual` (always 32 bytes), not
+  "equal lengths first": no early exit, the length isn't leaked.
+- Stage 3: validation in **three explicit steps**, each with its own code (envelope →
+  `invalid_request`, template → `unknown_template`, data and path → `invalid_data`), instead of one
+  `discriminatedUnion` whose errors would need digging through issue paths to pick the code. Each
+  registry entry is built by `defineTemplate<T>()` (schema, allowed paths, renderer, typed end to
+  end) and exposes only `validate()`, which returns the parsed data and a bound `render`. The `path`
+  rule is per template. `kind` comes from the template key, never from the caller.
+- Stage 3: `bodyLimit` 16 KB answers **422 `invalid_request`**, not 413, to stay inside the agreed
+  status table. Any unexpected exception while sending (DB, rendering) answers **503
+  `send_failed`** (retried), never a bare 500.
+- Stage 3: the recipient is read with `db` (five columns), not `internalAdapter.findUserById`.
+  **Unverified addresses count as `recipient_unavailable`** (beyond the handoff: they can't sign in
+  to follow the link, and we never mail an unproven address). A ban whose `banExpires` has passed
+  doesn't count.
+- Stage 3: the request hash is SHA-256 over **canonical JSON** (keys sorted at every level) of the
+  validated `{ recipientUserId, template, data, path }`, so key order never causes a false 409.
+- Stage 3: `notification_sends` uses `timestamptz` (better-auth's tables use `timestamp`), a text
+  `status` with a `CHECK`, an index on `created_at`, no FK to `user`. It holds the address and the
+  rendered email (no comment text) for 48 h at most.
+- Stage 3: the Resend call has **no timeout of its own** (the SDK takes no abort signal);
+  membership-management's 5 s sender timeout bounds it, and its retry lands on the same stored row
+  and key. A wrapper can come later if needed. Every Resend error except
+  `invalid_idempotent_request` (409) is `send_failed` (503), including config problems such as an
+  unverified sender, so queued emails go out once the config is fixed.
+- Stage 3: invalid UTF-8 in the body is replaced with U+FFFD by the JSON parser, not rejected.
+  Accepted: membership-management (Python) sends ASCII-escaped JSON. Seen only in a Git Bash curl
+  test that sent `ó` as Latin-1.
+- Stage 3 for `management-infra`: the token protects `/internal/*`, but the load balancer should
+  also not route `/internal/*` from the internet (defence in depth).
+- Stage 3 follow-up (copy, later): the reply subject doesn't name the group, so Gmail may thread
+  several replies by the same person into one conversation. If that bothers people, add the group
+  to the reply subject (canvas, then Stage 2's template). Gmail filed the test emails under
+  Promotions; worth telling members once.
+- Stage 3 checks (local): no/wrong token → 401 `invalid_token`; right token, unknown route → bare
+  404; valid request → 200, a real email, row `sent` (locale `es`); same request again → 200, same
+  id, no second email; same key, other data → 409 (and logged as an error); unknown template →
+  422 `unknown_template`; `//evil.example` → 422 `invalid_data`; unknown user → 404
+  `recipient_unavailable`; not JSON / extra key → 422 `invalid_request`; reply × watcher × prayer
+  rendered right with accents and the `?section=prayer` link; a 49 h row purged a minute after
+  start, a 47 h row kept; `node dist/index.js` + Ctrl+C → "Shutdown complete." (under `tsx watch`
+  on Windows the last lines are lost, so test shutdown on the build).
 
 ## Stage 1: Recipient language
 

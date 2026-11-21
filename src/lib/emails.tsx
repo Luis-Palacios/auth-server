@@ -7,8 +7,8 @@ import { ResetPasswordEmail, resetPasswordSubject } from '../emails/reset-passwo
 import { VerifyEmail, verifyEmailSubject } from '../emails/verify-email.js';
 import { config } from './config.js';
 
-const resend = new Resend(config.resendApiKey);
-const from = `Ekklesiaio <${config.resendFromEmail}>`;
+export const resend = new Resend(config.resendApiKey);
+export const emailFrom = `Ekklesiaio <${config.resendFromEmail}>`;
 
 // Renders the template to HTML plus a plain-text alternative and sends it. Never rejects: auth
 // flows call these without awaiting (a mail problem must not fail sign-up or password reset), so
@@ -17,7 +17,7 @@ async function send(args: { to: string; subject: string; react: ReactElement }):
 	const { to, subject, react } = args;
 	try {
 		const [html, text] = await Promise.all([render(react), render(react, { plainText: true })]);
-		const { error } = await resend.emails.send({ from, to, subject, html, text });
+		const { error } = await resend.emails.send({ from: emailFrom, to, subject, html, text });
 		if (error) {
 			console.error(`Failed to send "${subject}" email`, error);
 		}

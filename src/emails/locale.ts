@@ -10,7 +10,7 @@ export const defaultLocale: Locale = 'en';
 // Accept-Language fallback below.
 const LOCALE_COOKIE = 'ekk_locale';
 
-function isLocale(value: unknown): value is Locale {
+export function isLocale(value: unknown): value is Locale {
 	return typeof value === 'string' && (locales as readonly string[]).includes(value);
 }
 
