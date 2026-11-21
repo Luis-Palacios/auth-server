@@ -53,8 +53,8 @@ templates previewed with `pnpm email:dev`.
 | 0. Handoff updated to the Nov 2026 design | ✅ | `ae18d1b` |
 | 1. Recipient language: `locale` on the user | ✅ | `4700581` |
 | 2. Templates: new conversation, new reply (en/es, all variants) | ✅ | `5202079` |
-| 3. Internal auth, `notification_sends`, `POST /internal/notifications`, purge timer | ✅ | (this commit) |
-| 4. User routes: `with-permission`, `permissions` | ⬜ | |
+| 3. Internal auth, `notification_sends`, `POST /internal/notifications`, purge timer | ✅ | `be89ed6` |
+| 4. User routes: `with-permission`, `permissions` | ✅ | (this commit) |
 | 5. Docs | ⬜ | |
 
 ### Decisions and deviations
@@ -156,6 +156,33 @@ templates previewed with `pnpm email:dev`.
   rendered right with accents and the `?section=prayer` link; a 49 h row purged a minute after
   start, a 47 h row kept; `node dist/index.js` + Ctrl+C → "Shutdown complete." (under `tsx watch`
   on Windows the last lines are lost, so test shutdown on the build).
+- Stage 4 files: `src/routes/internal/users.ts`; helpers `isKnownPermission` and `rolesWithAll` in
+  `src/permissions/statements.ts` (next to `permissionsFor`, so the role map is still read in one
+  place); `onError` on the router in `src/routes/internal/index.ts`.
+- Stage 4: `with-permission` takes **1–20** `permission` values (more → 422 `invalid_permission`),
+  checks each against `statement` with `Object.hasOwn` (so `toString:all` is unknown, not a match),
+  and the unknown name in the message is cut to 100 characters. Permissions → roles is done in code,
+  then one `inArray(user.role, …)` query, sorted by id. **No paging**: staff accounts are tens, not
+  thousands; add it if that changes.
+- Stage 4: "banned" is `banned = true` and (`banExpires` null or in the future), the same rule
+  better-auth uses at sign-in, so an expired ban counts as active again. Both routes share
+  `notBanned()`. **Unverified users are not filtered** here: these routes answer "who may read",
+  and an unverified account can't sign in anyway; `POST /internal/notifications` already refuses
+  unverified addresses (Stage 3).
+- Stage 4: `permissions` takes 1–500 ids of 1–200 characters (`strictObject`), a 64 KB `bodyLimit`
+  (→ 422 `invalid_request`, like Stage 3), de-duplicates with a `Set`, and builds `users` with
+  `Object.fromEntries` so an id like `__proto__` can't change the object's prototype. `pending`
+  users are present with `{}`; the caller turns that into "can't read".
+- Stage 4: `onError` on the `/internal` router answers **500 `{ code: "internal_error" }`** for
+  anything that throws (DB down, a bug), with the error logged and never put in the body. Hono keeps
+  a sub-app's `onError` for its own routes only, so `/api/auth/*` and `/health` are unchanged
+  (checked with a scratch app: inside → JSON, outside → Hono's plain 500).
+- Stage 4 checks (local): `smallGroups:all` → both admins + the elder; `smallGroupReports:view` → also
+  the deacon and the leader, not `user`/`pending`; two permissions → only roles with both; typo or
+  none → 422 `invalid_permission`; no token → 401; elder banned → left out, ban expired → back,
+  un-banned after. `permissions`: admin + deacon + unknown → two entries (the JWT's `perms` shape);
+  a duplicate → one; `pending` → `{}`; 501 ids, `[]`, an extra key, not JSON → 422; 70 KB → 422
+  "too large". No caching: every ban change showed on the very next call.
 
 ## Stage 1: Recipient language
 

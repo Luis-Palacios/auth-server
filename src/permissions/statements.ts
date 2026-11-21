@@ -109,3 +109,31 @@ export function permissionsFor(role: string | null | undefined): Permissions {
 	}
 	return permissions;
 }
+
+// `resource:action`, the way the internal routes name a permission (e.g. "smallGroups:all").
+function parsePermission(name: string): [resource: string, action: string] | null {
+	const [resource, action, ...rest] = name.split(':');
+	if (!resource || !action || rest.length > 0) return null;
+	return [resource, action];
+}
+
+// True when `resource:action` exists in the statement, whichever role holds it. Lets callers reject a
+// misspelt permission ("smallgroups:all") instead of quietly answering "nobody has it".
+export function isKnownPermission(name: string): boolean {
+	const parsed = parsePermission(name);
+	if (!parsed || !Object.hasOwn(statement, parsed[0])) return false;
+	const actions: readonly string[] = statement[parsed[0] as keyof typeof statement];
+	return actions.includes(parsed[1]);
+}
+
+// Every role whose permissions include all the listed `resource:action`s. Built on permissionsFor, so
+// it can never disagree with what the session and the JWT say a role can do.
+export function rolesWithAll(names: readonly string[]): string[] {
+	return Object.keys(roles).filter((role) => {
+		const permissions = permissionsFor(role);
+		return names.every((name) => {
+			const parsed = parsePermission(name);
+			return parsed !== null && (permissions[parsed[0]]?.includes(parsed[1]) ?? false);
+		});
+	});
+}
