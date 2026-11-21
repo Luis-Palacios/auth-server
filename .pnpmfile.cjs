@@ -1,13 +1,19 @@
-// better-auth declares drizzle-kit as an optional peer (for its schema CLI) but never imports it
-// at run time. Because drizzle-kit is our devDependency, pnpm links it as better-auth's peer,
-// and `pnpm install --prod` then ships drizzle-kit + esbuild (~105 MB) in the production image.
-// Dropping the peer keeps drizzle-kit dev-only. Remove this if better-auth stops declaring it.
+// better-auth declares optional peers for frameworks and tools it never imports at run time here:
+// drizzle-kit (its schema CLI) and next (its `better-auth/next-js` entry, unused). When one of them
+// is in our tree as a devDependency (drizzle-kit directly; next through @react-email/ui, the
+// `email:dev` preview server), pnpm links it as better-auth's peer, and `pnpm install --prod` then
+// ships it in the production image (drizzle-kit + esbuild ~105 MB; next + sharp ~320 MB). Dropping
+// the peers keeps them dev-only. Remove an entry if better-auth stops declaring it.
+const droppedBetterAuthPeers = ['drizzle-kit', 'next'];
+
 module.exports = {
 	hooks: {
 		readPackage(pkg) {
-			if (pkg.name === 'better-auth' && pkg.peerDependencies?.['drizzle-kit']) {
-				delete pkg.peerDependencies['drizzle-kit'];
-				delete pkg.peerDependenciesMeta?.['drizzle-kit'];
+			if (pkg.name === 'better-auth') {
+				for (const peer of droppedBetterAuthPeers) {
+					delete pkg.peerDependencies?.[peer];
+					delete pkg.peerDependenciesMeta?.[peer];
+				}
 			}
 			return pkg;
 		},

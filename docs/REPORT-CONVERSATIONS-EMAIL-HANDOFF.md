@@ -52,7 +52,7 @@ templates previewed with `pnpm email:dev`.
 | --- | --- | --- |
 | 0. Handoff updated to the Nov 2026 design | ✅ | (this commit) |
 | 1. Recipient language: `locale` on the user | ✅ | (this commit) |
-| 2. Templates: new conversation, new reply (en/es, all variants) | ⬜ | |
+| 2. Templates: new conversation, new reply (en/es, all variants) | ✅ | (this commit) |
 | 3. Internal auth, `notification_sends`, `POST /internal/notifications`, purge timer | ⬜ | |
 | 4. User routes: `with-permission`, `permissions` | ⬜ | |
 | 5. Docs | ⬜ | |
@@ -83,6 +83,32 @@ templates previewed with `pnpm email:dev`.
 - Stage 1 checks (local): first sign-in with `es` cookie → `es`; sign-in with `en` → still `es`;
   `update-user { locale: "en" }` → 200 and `en`; `{ locale: "fr" }` → 400 `VALIDATION_ERROR`;
   `locale` reset to null and the session made due for refresh → filled on a page load, no sign-in.
+- Stage 2: the *(canvas)* rows were approved by Luis in the session (Nov 21, 2026) as written in the
+  copy table, because the canvas has no boards for them yet; the canvas still needs them (watcher
+  "why" line, `startedBy = leaders` title, section names, reply body for `reason ≠ participant`, all
+  in Spanish). One change: the Spanish section names carry their article (*las peticiones de
+  oración*, *los motivos de alabanza*, *los puntos para seguimiento de los ancianos*) and the
+  sentence is "sobre {section}", so masculine sections read right ("sobre los motivos…", not "sobre
+  las motivos…"). The watcher footer keeps both lines (why + unwatch, then throttle + opt-out).
+- Stage 2: contract with Stage 3, all in `src/emails/report-conversation.tsx`:
+  `ReportConversationEmailProps`, `ReportConversationEmail`, `reportConversationSubject(props)`. Like
+  the `invite-user` pair, one component with a copy table keyed by `Locale` (every `kind`, `reason`,
+  `topic` value must have copy in both languages or the typecheck fails); `report-conversation.es.tsx`
+  is only the Spanish preview. Sentences with bold parts are kept as segments, so the same copy gives
+  the HTML body and the plain-text inbox preview (the body sentence). `meetingDate` is formatted in
+  UTC so the server's time zone can't move the day; a value that isn't `YYYY-MM-DD` is shown as given
+  (Stage 3's schema rejects it first). The privacy box is local to the template (only user), not in
+  `shared/`.
+- Stage 2: `@react-email/ui` 6.9.5 added as an exact devDependency (same version as `react-email`):
+  in react-email 6 the preview server is a separate package, and `pnpm email:dev` stops with an
+  install prompt without it. It pulls in `next`, which better-auth declares as an optional peer, so
+  pnpm linked it to better-auth and `pnpm install --prod` shipped `next` + `sharp` in the image
+  (prod `node_modules` 143 → 463 MB, image 416 → 838 MB). `.pnpmfile.cjs` now drops better-auth's
+  `next` peer as well as `drizzle-kit` (better-auth only uses it in `better-auth/next-js`, which we
+  don't import): back to 143 MB / 416 MB, no `next` or `sharp` in the image, `docker build` passes.
+- Stage 2 checks: every combination (new × `startedBy` × `topic`, reply × `reason`, 22 with both
+  languages) rendered as plain text against the copy table, and previewed in `pnpm email:dev`
+  (temporary preview files, not committed) at desktop and 375 px.
 
 ## Stage 1: Recipient language
 
