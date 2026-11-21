@@ -12,8 +12,9 @@ import { roles } from '../permissions/statements.js';
 //
 // It updates user.role directly instead of going through better-auth: auth.api.setRole requires an
 // admin session, which a break-glass script doesn't have, and importing lib/auth.ts would pull in
-// lib/config.ts and every app secret. The trade-off: better-auth's databaseHooks don't run here (none
-// are configured today - revisit this script if one is added on user update).
+// lib/config.ts and every app secret. The trade-off: better-auth's databaseHooks don't run here. Only
+// session hooks are configured today (fillLocaleIfEmpty), so nothing is skipped; revisit this script
+// if a hook is added on user update.
 //
 // The change is visible on the user's next request, because session.cookieCache is off and
 // getSession reads the user row every time. Turning cookieCache on would delay it by up to its maxAge.
