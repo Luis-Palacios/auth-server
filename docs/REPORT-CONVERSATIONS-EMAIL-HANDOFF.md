@@ -54,8 +54,8 @@ templates previewed with `pnpm email:dev`.
 | 1. Recipient language: `locale` on the user | ✅ | `4700581` |
 | 2. Templates: new conversation, new reply (en/es, all variants) | ✅ | `5202079` |
 | 3. Internal auth, `notification_sends`, `POST /internal/notifications`, purge timer | ✅ | `be89ed6` |
-| 4. User routes: `with-permission`, `permissions` | ✅ | (this commit) |
-| 5. Docs | ⬜ | |
+| 4. User routes: `with-permission`, `permissions` | ✅ | `b8d8556` |
+| 5. Docs | ✅ | (this commit) |
 
 ### Decisions and deviations
 
@@ -183,6 +183,16 @@ templates previewed with `pnpm email:dev`.
   un-banned after. `permissions`: admin + deacon + unknown → two entries (the JWT's `perms` shape);
   a duplicate → one; `pending` → `{}`; 501 ids, `[]`, an extra key, not JSON → 422; 70 KB → 422
   "too large". No caching: every ban change showed on the very next call.
+- Stage 5: there is no `docs/ARCHITECTURE.md` in this repo, so the notes went to `CLAUDE.md`
+  (*Internal API*, *Notification sends*, *Recipient language*, the schemas folder and `drizzle/`,
+  and the set-role note that said no `databaseHooks` exist), the README (`/internal/*` in *API*,
+  `auth generate --output src/data/schemas/auth-schema.ts` instead of "move the file") and
+  `.env.example` (`INTERNAL_API_TOKEN` also guards `/internal/*`). Canvas (version 146, not in this
+  repo): the "Email rules" note names the two templates and says how each email picks its language;
+  `Email-NewComment` has Tweaks for `kind`, `startedBy`, `topic` and `reason` with the code's
+  English copy (every variant, the real `?person=` / `?section=` link, footer "Sent by
+  ekklesiaio."), `Email-NewReply` mounts it with a `reason` tweak, both 920 px tall; the Report
+  conversations note no longer says the boards are still to come.
 
 ## Stage 1: Recipient language
 

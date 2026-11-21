@@ -66,9 +66,8 @@ pnpm exec biome check --write .   # lint + auto-fix
 pnpm exec biome format --write .  # format only
 pnpm exec tsx src/lib/auth.ts     # run a TS file directly during development
 
-pnpm dlx auth@latest generate # generate better-auth schemas
-## Move auth-schemas to ./src/data/schemas then:
-pnpm drizzle-kit generate   # generate migrations
+pnpm dlx auth@latest generate --output src/data/schemas/auth-schema.ts  # regenerate better-auth's schema
+pnpm drizzle-kit generate   # generate migrations (into drizzle/)
 pnpm drizzle-kit migrate # run migrations
 
 # local dev only: create an admin user from scratch, password will be asked
@@ -95,3 +94,8 @@ Running `pnpm dev` (or `pnpm start` after a build) starts a Hono server (listeni
   `db: 'up'|'down'` (503 on failure or while shutting down) plus pool stats
 - `/health/live` — liveness check for container healthchecks (Docker, compose, ECS): touches no DB,
   so a DB outage doesn't get the container restarted in a loop; 200 while the process answers
+- `/internal/*` — server-to-server routes for membership-management only, behind
+  `X-Internal-Token` (`INTERNAL_API_TOKEN`): `POST /internal/notifications` sends one email
+  (idempotent per key), `GET /internal/users/with-permission` and `POST /internal/users/permissions`
+  answer who can read what. Not for browsers, and the load balancer shouldn't route it from the
+  internet. Details in `CLAUDE.md`.
