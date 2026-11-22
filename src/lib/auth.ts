@@ -3,9 +3,11 @@ import { type BetterAuthOptions, type BetterAuthPlugin, betterAuth } from 'bette
 import { customSession, jwt, openAPI } from 'better-auth/plugins';
 import { admin as adminPlugin } from 'better-auth/plugins/admin';
 import { invite } from 'better-invite';
+import { and, eq, isNull } from 'drizzle-orm';
+import { z } from 'zod';
 import { db } from '../data/database.js';
 import * as schema from '../data/schemas/auth-schema.js';
-import { getLocale } from '../emails/locale.js';
+import { getLocale, locales } from '../emails/locale.js';
 import { accessControl, permissionsFor, roles } from '../permissions/statements.js';
 import { adminGuard } from './admin-guard.js';
 import { config } from './config.js';
@@ -14,6 +16,28 @@ import { notifyInviteAccepted } from './member-link-notifier.js';
 
 // Requests to /get-session or /token from one IP before a 429; see rateLimit below.
 const SESSION_READ_RATE_LIMIT_MAX = 300;
+
+// The stored language is filled in once, while empty, from the request's ekk_locale cookie or
+// Accept-Language; after that only the user's own pick (update-user) changes it. Called on every new
+// session (sign-in, auto sign-in after verifying, accepting an invite) and whenever an active session
+// is extended (about once a day of use), so users who stay signed in for months get one too.
+async function fillLocaleIfEmpty(
+	session: { userId: string; impersonatedBy?: string | null | undefined },
+	context: { request?: Request | undefined } | null,
+): Promise<void> {
+	if (session.impersonatedBy) return; // the admin's browser, not the user's
+	const locale = getLocale(context?.request);
+	if (!locale) return;
+	// Never fail a sign-in or a session refresh over the language: it's filled in next time.
+	try {
+		await db
+			.update(schema.user)
+			.set({ locale })
+			.where(and(eq(schema.user.id, session.userId), isNull(schema.user.locale)));
+	} catch (error) {
+		console.error(`Could not store the locale for user ${session.userId}`, error);
+	}
+}
 
 const baseConfig = {
 	secret: config.betterAuthSecret,
@@ -46,6 +70,25 @@ const baseConfig = {
 			const verificationUrl = `${config.staffAppUrl}/verify-email?token=${encodeURIComponent(token)}&email=${encodeURIComponent(user.email)}`;
 			const locale = getLocale(request);
 			void sendVerifyEmail({ to: user.email, verificationUrl, locale });
+		},
+	},
+	// The language emails are sent in when there's no browser request behind them (conversation
+	// emails). Filled in at sign-in while empty, changed only when the user picks a language
+	// (staff-app calls update-user). null = not known yet; senders fall back to defaultLocale.
+	user: {
+		additionalFields: {
+			locale: {
+				type: [...locales],
+				required: false,
+				input: true,
+				validator: { input: z.enum(locales) },
+			},
+		},
+	},
+	databaseHooks: {
+		session: {
+			create: { after: fillLocaleIfEmpty },
+			update: { after: fillLocaleIfEmpty },
 		},
 	},
 	// `enabled` is left unset so it falls through to better-auth's own default (on iff

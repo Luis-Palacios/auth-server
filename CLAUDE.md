@@ -100,7 +100,10 @@ Node 24 (`.nvmrc`) is the only runtime, in dev and in prod. Don't use Bun. There
   `src/index.ts` adds `Connection: close` to every response (otherwise busy keep-alive sockets hold
   `server.close()` open for `KEEP_ALIVE_TIMEOUT_MS`) and `/health` returns 503. Anything else that
   holds a resource (new pools, clients, timers) must be closed there too.
-- **Database**: Drizzle ORM against PostgreSQL, schema in `src/data/schemas/auth-schema.ts`.
+- **Database**: Drizzle ORM against PostgreSQL, schemas in `src/data/schemas/` (`auth-schema.ts`
+  is better-auth's tables; `pnpm dlx auth@latest generate --output src/data/schemas/auth-schema.ts`
+  regenerates it, and an `additionalFields` column can also be added there by hand), migrations in
+  `drizzle/`.
   `src/data/database.ts` constructs the `pg.Pool` explicitly (rather than via drizzle's
   `connection` shorthand) so it can also export `pool` directly for health-check stats; pool
   size/timeouts are configurable via `DB_POOL_MAX`/`DB_IDLE_TIMEOUT_MS`/`DB_CONNECTION_TIMEOUT_MS`.
@@ -128,8 +131,9 @@ Node 24 (`.nvmrc`) is the only runtime, in dev and in prod. Don't use Bun. There
   - Like `migrate.ts`, it must **not** import `lib/config.ts`, `lib/auth.ts` or `data/database.ts`:
     it needs only `DATABASE_URL`, so it still works when the app's config is broken. Valid roles
     come from `roles` in `permissions/statements.ts`, the same map the admin plugin uses.
-  - It updates `user.role` directly, so better-auth's `databaseHooks` don't run (none are
-    configured). Revisit the script if a user-update hook is ever added.
+  - It updates `user.role` directly, so better-auth's `databaseHooks` don't run. Only session
+    hooks are configured (`fillLocaleIfEmpty`), so nothing is skipped today; revisit the script if
+    a user-update hook is ever added.
   - It refuses unverified accounts and doesn't revoke sessions (to lock out a compromised account,
     ban it). The new role is visible on the user's next request only while `session.cookieCache`
     stays off.
@@ -143,6 +147,40 @@ Node 24 (`.nvmrc`) is the only runtime, in dev and in prod. Don't use Bun. There
   and is aborted from `shutdown.ts`. `MEMBERSHIP_API_URL` and `INTERNAL_API_TOKEN` go through
   `config.ts` like everything else: both required in production, both unset disables it in dev.
   Never await it in the accept path.
+- **Internal API (`/internal/*`)**: server-to-server routes called only by membership-management,
+  mounted in `src/index.ts` from `src/routes/internal/` and never proxied by staff-app. Every route
+  sits behind `requireInternalToken` (`X-Internal-Token`, the same `INTERNAL_API_TOKEN` as the
+  notifier, compared as SHA-256 digests with `timingSafeEqual`): token unset → 503
+  `internal_api_disabled`, wrong or missing → 401 `invalid_token`. Every error body is
+  `{ code, message }` (`internalError()`); the router's `onError` turns anything that throws into
+  500 `internal_error` and logs it, never putting the error in the body. A bare 404 means the route
+  doesn't exist. Don't log ids from request bodies, addresses or tokens. Routes:
+  - `POST /internal/notifications`: renders and sends one email (`src/notifications/send.ts`).
+    `{ idempotencyKey, recipientUserId, template, data, path }`, validated in three steps
+    (envelope → template key in `notificationTemplates` → that template's `data` schema and `path`
+    pattern). 200 sent (also for a repeat), 404 `recipient_unavailable` (missing, unverified or
+    banned), 409 `idempotency_conflict` (same key, different request), 422
+    `invalid_request`/`unknown_template`/`invalid_data`, 503 `send_failed` (the caller retries with
+    the same key). A new email type is a new entry in `src/notifications/templates.tsx` plus its
+    React template in `src/emails/`, never a new route.
+  - `GET /internal/users/with-permission?permission=resource:action&…`: ids of users holding all
+    the given permissions (1–20, each must exist in `statement`, else 422 `invalid_permission`).
+  - `POST /internal/users/permissions` `{ userIds }` (1–500): each user's `permissionsFor(role)`,
+    the JWT's `perms` shape. Unknown and banned users are absent.
+  Both user routes leave banned users out (`notBanned()`: ban not set, or expired), the same rule
+  better-auth applies at sign-in.
+- **Notification sends**: `notification_sends` (`src/data/schemas/notification-sends.ts`) makes
+  each `idempotencyKey` render once: the first request stores the exact Resend payload and a
+  canonical-JSON SHA-256 of the request, and a retry resends that stored payload with the same
+  Resend idempotency key, so a template change or a recipient's new address never changes an email
+  already in flight. Rows are kept 48 hours (longer than Resend's 24-hour idempotency window):
+  `src/notifications/purge.ts` deletes older ones a minute after start and then hourly (`unref`'d
+  timers, stopped in `shutdown.ts`).
+- **Recipient language**: `user.locale` (`en`/`es`, a better-auth `additionalFields` entry) picks
+  the email's language. `fillLocaleIfEmpty` in `auth.ts`, on `databaseHooks.session.create.after`
+  and `session.update.after`, fills it from the request's `Accept-Language` only while it's empty
+  (skipped for impersonation). It's an `input: true` field, so `update-user` can set it too
+  (staff-app's language picker will, in its part of the spec). Empty → the default locale.
 - **Docker image**: multi-stage `Dockerfile` (Alpine, Node and Alpine pinned exactly, non-root
   `node` user, exec-form `CMD` so node is PID 1 and gets SIGTERM). `.pnpmfile.cjs` drops
   better-auth's optional `drizzle-kit` peer, so `--prod` installs don't ship drizzle-kit/esbuild.

@@ -5,8 +5,10 @@ import { cors } from 'hono/cors';
 import { auth } from './lib/auth.js'; // path to your auth file
 import { config } from './lib/config.js';
 import { isShuttingDown, registerGracefulShutdown } from './lib/shutdown.js';
+import { startNotificationSendsPurge } from './notifications/purge.js';
 import { customAuthRoute } from './routes/custom-auth/index.js';
 import { healthRoute } from './routes/health.js';
+import { internalRoute } from './routes/internal/index.js';
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 
@@ -25,6 +27,7 @@ if (config.corsOrigins.length > 0) {
 }
 app.route('/health', healthRoute);
 app.route('/api/custom-auth', customAuthRoute);
+app.route('/internal', internalRoute);
 app.on(['POST', 'GET'], '/api/auth/*', (c) => auth.handler(resolveAuthRequest(c)));
 
 // better-auth's rate limiter keys requests by client IP, read from X-Forwarded-For (see
@@ -85,3 +88,4 @@ const server = serve(
 // node:http's Server. Check it rather than cast, so a future change fails loudly at startup.
 if (!(server instanceof Server)) throw new Error('Expected serve() to return a node:http Server');
 registerGracefulShutdown(server);
+startNotificationSendsPurge();

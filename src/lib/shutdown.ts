@@ -1,5 +1,6 @@
 import type { Server } from 'node:http';
 import { pool } from '../data/database.js';
+import { stopNotificationSendsPurge } from '../notifications/purge.js';
 import { config } from './config.js';
 import { abortPendingNotifications } from './member-link-notifier.js';
 
@@ -26,6 +27,7 @@ export function registerGracefulShutdown(server: Server): void {
 		}, config.shutdownTimeoutMs);
 
 		abortPendingNotifications();
+		stopNotificationSendsPurge();
 
 		try {
 			// Stops accepting connections and resolves once in-flight requests have finished.
