@@ -3,6 +3,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { commandFailureMessage } from './command-failure.mjs';
 
 const input = JSON.parse(readFileSync(0, 'utf8'));
 const root = process.env.CLAUDE_PROJECT_DIR || process.cwd();
@@ -18,7 +19,7 @@ if (input.hook_event_name === 'PostToolUse') {
 	const file = input.tool_input?.file_path;
 	if (!file || !lintable(file) || path.relative(root, file).startsWith('..')) process.exit(0);
 	const r = run('pnpm', ['exec', 'biome', 'check', file]);
-	if (r.status !== 0) fail(`Biome errors in ${file}:\n${r.stdout}${r.stderr}`);
+	if (r.status !== 0) fail(`Biome errors in ${file}:\n${commandFailureMessage(r)}`);
 	process.exit(0);
 }
 
@@ -27,7 +28,11 @@ if (input.stop_hook_active) process.exit(0);
 const diff = run('git', ['diff', '--name-only', 'HEAD']);
 const untracked = run('git', ['ls-files', '--others', '--exclude-standard']);
 if (diff.status !== 0 || untracked.status !== 0) {
-	const reason = `Could not list changed files:\n${diff.error || diff.stderr}${untracked.error || untracked.stderr}`;
+	const reason = [
+		'Could not list changed files:',
+		...(diff.status !== 0 ? [`git diff:\n${commandFailureMessage(diff)}`] : []),
+		...(untracked.status !== 0 ? [`git ls-files:\n${commandFailureMessage(untracked)}`] : []),
+	].join('\n');
 	process.stdout.write(`${JSON.stringify({ decision: 'block', reason })}\n`);
 	process.exit(0);
 }
@@ -38,9 +43,12 @@ const errors = [];
 const files = changed.filter(lintable);
 if (files.length) {
 	const r = run('pnpm', ['exec', 'biome', 'check', ...files]);
-	if (r.status !== 0) errors.push(`Biome:\n${r.stdout}${r.stderr}`);
+	if (r.status !== 0) errors.push(`Biome:\n${commandFailureMessage(r)}`);
 	const t = run('pnpm', ['exec', 'tsc', '--noEmit', '--pretty', 'false']);
-	if (t.status !== 0) errors.push(`tsc:\n${t.stdout.split('\n').slice(0, 40).join('\n')}${t.stderr}`);
+	if (t.status !== 0) {
+		const stdout = typeof t.stdout === 'string' ? t.stdout.split('\n').slice(0, 40).join('\n') : t.stdout;
+		errors.push(`tsc:\n${commandFailureMessage(t, stdout)}`);
+	}
 }
 if (errors.length) {
 	const reason = `Checks on the changed files failed. Fix them before finishing:\n\n${errors.join('\n\n')}`;
