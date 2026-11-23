@@ -48,8 +48,10 @@ pnpm exec tsx --env-file-if-exists=.env src/scripts/set-role.ts <email> <role>  
 node dist/scripts/set-role.js <email> <role>                                    # production image
 ```
 
-Node 24 (`.nvmrc`) is the only runtime, in dev and in prod. Don't use Bun. There is no real
-`test` script yet (`package.json`'s `test` script is a placeholder that exits with an error).
+Node 24 (`.nvmrc`) is the only runtime, in dev and in prod. Don't use Bun. `pnpm test` runs
+`src/**/*.test.ts(x)` with Node's built-in runner through tsx (`node:test`, `node:assert/strict`, no
+test framework dependency); test files are excluded from the build. Only the notification templates
+have tests so far; anything that needs the DB or `config` is still checked by hand.
 
 ## Architecture notes
 
@@ -162,7 +164,10 @@ Node 24 (`.nvmrc`) is the only runtime, in dev and in prod. Don't use Bun. There
     banned), 409 `idempotency_conflict` (same key, different request), 422
     `invalid_request`/`unknown_template`/`invalid_data`, 503 `send_failed` (the caller retries with
     the same key). A new email type is a new entry in `src/notifications/templates.tsx` plus its
-    React template in `src/emails/`, never a new route.
+    React template in `src/emails/`, never a new route. Templates: `report-conversation.new` and
+    `.reply` (links `/groups/reports/{id}?person=|guest=|section=`) and `report.submitted` (link
+    `/groups/reports/{id}`, no query; `held: true` needs `attendedCount` and `peopleCount`,
+    `held: false` forbids them).
   - `GET /internal/users/with-permission?permission=resource:action&…`: ids of users holding all
     the given permissions (1–20, each must exist in `statement`, else 422 `invalid_permission`).
   - `POST /internal/users/permissions` `{ userIds }` (1–500): each user's `permissionsFor(role)`,
