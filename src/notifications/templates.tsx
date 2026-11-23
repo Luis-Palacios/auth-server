@@ -77,6 +77,11 @@ const reportReminderData = z.strictObject({
 const reportReminderPath =
 	/^\/groups\/reports$|^\/groups\/reports\/new\?groupId=[1-9]\d*$|^\/groups\/reports\/[1-9]\d*\/edit$/;
 
+// What each template's `data` parses to; the push copy (push-copy.ts) renders from these.
+export type ReportConversationData = z.infer<typeof reportConversationData>;
+export type ReportSubmittedData = z.infer<typeof reportSubmittedData>;
+export type ReportReminderData = z.infer<typeof reportReminderData>;
+
 export type RenderContext = { url: string; locale: Locale };
 export type RenderedEmail = { subject: string; react: ReactElement };
 

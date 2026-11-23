@@ -39,8 +39,8 @@ Branch **`feature/notifications-push`**. Each stage: `pnpm typecheck`, `pnpm tes
 | 1. Config: VAPID keys, subject, `PUSH_NOTIFICATIONS_ENABLED` | done | `5d2cae0` |
 | 2. Tables `push_subscriptions` and `push_sends`, migration, purge | done | `ec8cf22` |
 | 3. Routes `GET /api/push/config`, `PUT` and `DELETE /api/push/subscriptions` | done | `e60f7fd` |
-| 4. Ban hook deletes the user's subscriptions | done | (see git log) |
-| 5. Push copy (`{ title, body }`, en/es) with tests | pending | |
+| 4. Ban hook deletes the user's subscriptions | done | `e845bb3` |
+| 5. Push copy (`{ title, body }`, en/es) with tests | done | (see git log) |
 | 6. VAPID keys and the `web-push` package | with Luis | |
 | 7. The send: payload, encryption, `TTL` / `Urgency` / `Topic` | with Luis | |
 | 8. Fan-out, push-service responses, `push_sends` | with Luis | |
@@ -63,6 +63,12 @@ Branch **`feature/notifications-push`**. Each stage: `pnpm typecheck`, `pnpm tes
 - Stage 4: better-auth runs `user.update.after` after the update is saved, so a failing cleanup
   doesn't undo the ban; banning again retries it. Not exercised against a real ban (migration not
   applied locally). `src/scripts/set-role.ts` bypasses hooks but never bans, so it's unaffected.
+- Stage 5: `src/notifications/push-copy.ts` exports `reportConversationPushCopy(kind, data, locale)`
+  (`kind` `'new' | 'reply'`), `reportSubmittedPushCopy(data, locale)` and
+  `reportReminderPushCopy(data, locale)`, all returning `{ title, body }`; the data types are
+  exported from `templates.tsx`. `{weekStart}` uses the emails' `formatMeetingDate` too ("Week of
+  Sunday, November 22" / "Semana del domingo 22 de noviembre"), so staff-app's list should format it
+  the same way. Not truncated: the 4 KB payload budget is for the learning stage to check.
 - `pnpm exec biome check .` fails on `.agents/` (pre-existing); the checks use `biome check src`.
 
 ## Stages 1-5 (plumbing)
