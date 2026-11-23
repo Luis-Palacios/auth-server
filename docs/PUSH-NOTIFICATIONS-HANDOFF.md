@@ -38,8 +38,8 @@ Branch **`feature/notifications-push`**. Each stage: `pnpm typecheck`, `pnpm tes
 | 0. This handoff | done | `dc64bf3` |
 | 1. Config: VAPID keys, subject, `PUSH_NOTIFICATIONS_ENABLED` | done | `5d2cae0` |
 | 2. Tables `push_subscriptions` and `push_sends`, migration, purge | done | `ec8cf22` |
-| 3. Routes `GET /api/push/config`, `PUT` and `DELETE /api/push/subscriptions` | done | (see git log) |
-| 4. Ban hook deletes the user's subscriptions | pending | |
+| 3. Routes `GET /api/push/config`, `PUT` and `DELETE /api/push/subscriptions` | done | `e60f7fd` |
+| 4. Ban hook deletes the user's subscriptions | done | (see git log) |
 | 5. Push copy (`{ title, body }`, en/es) with tests | pending | |
 | 6. VAPID keys and the `web-push` package | with Luis | |
 | 7. The send: payload, encryption, `TTL` / `Urgency` / `Topic` | with Luis | |
@@ -60,6 +60,9 @@ Branch **`feature/notifications-push`**. Each stage: `pnpm typecheck`, `pnpm tes
   characters, no padding. Pure validation lives in `src/notifications/push-input.ts` (tested).
 - Stage 3: the authenticated paths (upsert, cap, delete) were not exercised against the DB: the
   migration isn't applied locally. Only the 401s were checked against the running dev server.
+- Stage 4: better-auth runs `user.update.after` after the update is saved, so a failing cleanup
+  doesn't undo the ban; banning again retries it. Not exercised against a real ban (migration not
+  applied locally). `src/scripts/set-role.ts` bypasses hooks but never bans, so it's unaffected.
 - `pnpm exec biome check .` fails on `.agents/` (pre-existing); the checks use `biome check src`.
 
 ## Stages 1-5 (plumbing)

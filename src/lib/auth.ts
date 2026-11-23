@@ -7,6 +7,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '../data/database.js';
 import * as schema from '../data/schemas/auth-schema.js';
+import { pushSubscriptions } from '../data/schemas/push.js';
 import { getLocale, locales } from '../emails/locale.js';
 import { accessControl, permissionsFor, roles } from '../permissions/statements.js';
 import { adminGuard } from './admin-guard.js';
@@ -86,6 +87,19 @@ const baseConfig = {
 		},
 	},
 	databaseHooks: {
+		user: {
+			// Notifications spec rule 9: a banned user gets no more pushes. banUser (and update-user setting
+			// `banned`) updates the user through the adapter, so this runs for any way of banning. `user` is
+			// the updated row. Errors are not swallowed, so a failure shows up in the logs and the request;
+			// the ban itself is already saved, and banning again retries the cleanup.
+			update: {
+				after: async (updated) => {
+					if (updated.banned === true) {
+						await db.delete(pushSubscriptions).where(eq(pushSubscriptions.userId, updated.id));
+					}
+				},
+			},
+		},
 		session: {
 			create: { after: fillLocaleIfEmpty },
 			update: { after: fillLocaleIfEmpty },
