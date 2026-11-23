@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "9b54e1fb-7539-4628-8fa8-a1ffad51e39e",
+  "id": "52446502-9bb6-4bdd-9e49-ae60750721bd",
   "prevIds": [
     "d5918907-f2d3-44ee-9354-e46807de8631"
   ],
@@ -1361,6 +1361,27 @@
       "method": "btree",
       "concurrently": false,
       "name": "push_sends_created_at_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "push_sends"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "subscription_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "push_sends_subscription_id_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "push_sends"

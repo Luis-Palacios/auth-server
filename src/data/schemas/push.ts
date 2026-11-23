@@ -37,5 +37,7 @@ export const pushSends = pgTable(
 	(table) => [
 		primaryKey({ columns: [table.idempotencyKey, table.subscriptionId] }),
 		index('push_sends_created_at_idx').on(table.createdAt),
+		// The PK leads with the key; this serves the cascade when a subscription is deleted.
+		index('push_sends_subscription_id_idx').on(table.subscriptionId),
 	],
 );

@@ -24,9 +24,18 @@ function pushError(c: Context, status: ErrorStatus, code: string, message: strin
 }
 
 async function sessionUserId(c: Context): Promise<string | null> {
-	const session = await auth.api.getSession({ headers: c.req.raw.headers });
-	return session?.user.id ?? null;
+	return (await sessionOf(c))?.userId ?? null;
 }
+
+async function sessionOf(c: Context): Promise<{ userId: string; impersonated: boolean } | null> {
+	const session = await auth.api.getSession({ headers: c.req.raw.headers });
+	if (!session) return null;
+	return { userId: session.user.id, impersonated: Boolean(session.session.impersonatedBy) };
+}
+
+// First key of the two-key advisory lock (the second is the user), so these locks can't collide with
+// another feature's single-key locks. Arbitrary, but keep it unique in this service.
+const PUSH_SUBSCRIPTIONS_LOCK_CLASS = 7101;
 
 const tooLarge = (c: Context) => pushError(c, 422, 'invalid_request', 'The request body is too large.');
 
@@ -45,9 +54,13 @@ export const pushRoute = new Hono()
 	// Registers this browser for the caller. An endpoint that already exists moves to the caller
 	// (rule 9: a device belongs to whoever is signed in on it).
 	.put('/subscriptions', bodyLimit({ maxSize: MAX_BODY_BYTES, onError: tooLarge }), async (c) => {
-		const userId = await sessionUserId(c);
-		if (!userId) return pushError(c, 401, 'unauthorized', 'Sign in first.');
+		const session = await sessionOf(c);
+		if (!session) return pushError(c, 401, 'unauthorized', 'Sign in first.');
+		const { userId } = session;
 		if (!config.pushEnabled) return pushError(c, 404, 'push_disabled', 'Push notifications are off.');
+		// An admin impersonating a user is on the admin's browser, not the user's device: registering
+		// it would move the admin's device to the user. Answer as if it worked, store nothing.
+		if (session.impersonated) return c.body(null, 204);
 
 		const body = subscribeBody.safeParse(await c.req.json().catch(() => undefined));
 		if (!body.success) return pushError(c, 422, 'invalid_request', 'The body is not a push subscription.');
@@ -59,7 +72,7 @@ export const pushRoute = new Hono()
 
 		await db.transaction(async (tx) => {
 			// One registration at a time per user, so two at once can't both pass the cap.
-			await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${userId}))`);
+			await tx.execute(sql`select pg_advisory_xact_lock(${PUSH_SUBSCRIPTIONS_LOCK_CLASS}::int, hashtext(${userId}))`);
 			await tx
 				.insert(pushSubscriptions)
 				.values({ userId, endpoint, p256dh: keys.p256dh, auth: keys.auth, userAgent })
@@ -76,10 +89,14 @@ export const pushRoute = new Hono()
 				.orderBy(desc(pushSubscriptions.lastUsedAt), desc(pushSubscriptions.createdAt), desc(pushSubscriptions.id))
 				.offset(MAX_SUBSCRIPTIONS_PER_USER);
 			if (surplus.length > 0) {
+				// Also by user: a row another user's PUT moved here since the select must stay.
 				await tx.delete(pushSubscriptions).where(
-					inArray(
-						pushSubscriptions.id,
-						surplus.map((row) => row.id),
+					and(
+						eq(pushSubscriptions.userId, userId),
+						inArray(
+							pushSubscriptions.id,
+							surplus.map((row) => row.id),
+						),
 					),
 				);
 			}

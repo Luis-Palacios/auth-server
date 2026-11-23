@@ -89,13 +89,17 @@ const baseConfig = {
 	databaseHooks: {
 		user: {
 			// Notifications spec rule 9: a banned user gets no more pushes. banUser (and update-user setting
-			// `banned`) updates the user through the adapter, so this runs for any way of banning. `user` is
-			// the updated row. Errors are not swallowed, so a failure shows up in the logs and the request;
-			// the ban itself is already saved, and banning again retries the cleanup.
+			// `banned`) updates the user through the adapter, so this runs for any way of banning. `updated`
+			// is the updated row (the adapter can return null).
 			update: {
 				after: async (updated) => {
-					if (updated.banned === true) {
+					if (updated?.banned !== true) return;
+					// banUser deletes the user's sessions right after this hook, so a throw here would leave a
+					// banned user signed in. Log and carry on, like fillLocaleIfEmpty; banning again retries.
+					try {
 						await db.delete(pushSubscriptions).where(eq(pushSubscriptions.userId, updated.id));
+					} catch (error) {
+						console.error(`Could not delete the push subscriptions of banned user ${updated.id}`, error);
 					}
 				},
 			},

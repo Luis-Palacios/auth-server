@@ -18,6 +18,7 @@ CREATE TABLE "push_subscriptions" (
 );
 --> statement-breakpoint
 CREATE INDEX "push_sends_created_at_idx" ON "push_sends" ("created_at");--> statement-breakpoint
+CREATE INDEX "push_sends_subscription_id_idx" ON "push_sends" ("subscription_id");--> statement-breakpoint
 CREATE INDEX "push_subscriptions_user_id_idx" ON "push_subscriptions" ("user_id");--> statement-breakpoint
 ALTER TABLE "push_sends" ADD CONSTRAINT "push_sends_subscription_id_push_subscriptions_id_fkey" FOREIGN KEY ("subscription_id") REFERENCES "push_subscriptions"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "push_subscriptions" ADD CONSTRAINT "push_subscriptions_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;
