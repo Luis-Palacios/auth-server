@@ -1,7 +1,9 @@
-import type { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties } from 'react';
 import { Text } from 'react-email';
 import type { Locale } from './locale.js';
 import { ActionButton, BodyText, EmailShell, FallbackLink, IgnoreNote, Strong } from './shared/layout.js';
+import { formatMeetingDate } from './shared/meeting-date.js';
+import { type Segment, Segments, toText } from './shared/segments.js';
 import { colors as c } from './shared/theme.js';
 
 // What auth-server renders for the `report-conversation.new` and `report-conversation.reply`
@@ -25,10 +27,6 @@ export type ReportConversationEmailProps = {
 };
 
 type Section = Exclude<ReportConversationEmailProps['topic'], 'person'>;
-
-// A sentence with bold parts, kept as data so the same copy gives the HTML body (bold names) and
-// the plain-text inbox preview.
-type Segment = string | { strong: string };
 
 type ConversationCopy = {
 	subject: { new: (actor: string, group: string) => string; reply: (actor: string) => string };
@@ -188,24 +186,6 @@ const copy: Record<Locale, ConversationCopy> = {
 	},
 };
 
-// "Thursday, October 8" / "jueves 8 de octubre". Parsed as a UTC calendar date and formatted in UTC,
-// so the server's time zone can't move it a day. Anything that isn't YYYY-MM-DD is shown as given
-// (Stage 3's schema rejects it first; this just keeps a bad value from throwing mid-render).
-function formatMeetingDate(isoDate: string, locale: Locale): string {
-	const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate);
-	if (!match) return isoDate;
-	const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
-	if (Number.isNaN(date.getTime())) return isoDate;
-	const formatted = new Intl.DateTimeFormat(locale, {
-		weekday: 'long',
-		month: 'long',
-		day: 'numeric',
-		timeZone: 'UTC',
-	}).format(date);
-	// Intl gives "jueves, 8 de octubre"; the boards' Spanish has no comma after the weekday.
-	return locale === 'es' ? formatted.replace(', ', ' ') : formatted;
-}
-
 function bodySegments(props: ReportConversationEmailProps): Segment[] {
 	const t = copy[props.locale];
 	const date = formatMeetingDate(props.meetingDate, props.locale);
@@ -217,19 +197,6 @@ function bodySegments(props: ReportConversationEmailProps): Segment[] {
 	return props.topic === 'person'
 		? t.body.newPerson(props.actorName, props.groupName, date)
 		: t.body.newSection(props.actorName, t.sections[props.topic], props.groupName, date);
-}
-
-const toText = (segments: Segment[]) => segments.map((s) => (typeof s === 'string' ? s : s.strong)).join('');
-
-function Segments({ segments, strong }: { segments: Segment[]; strong: (text: string) => ReactNode }) {
-	return (
-		<>
-			{segments.map((s, i) =>
-				// biome-ignore lint/suspicious/noArrayIndexKey: the list is static for one render
-				typeof s === 'string' ? s : <span key={i}>{strong(s.strong)}</span>,
-			)}
-		</>
-	);
 }
 
 export function reportConversationSubject(props: ReportConversationEmailProps): string {
