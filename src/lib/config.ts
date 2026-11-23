@@ -82,6 +82,16 @@ const envSchema = z
 		MEMBERSHIP_API_TIMEOUT_MS: z.coerce.number().int().positive().default(3_000),
 		RESEND_API_KEY: z.string().min(1, 'RESEND_API_KEY must be set (see .env.example)'),
 		RESEND_FROM_EMAIL: z.string().min(1, 'RESEND_FROM_EMAIL must be set (see .env.example)'),
+		// Web Push (notifications spec, Part 2). Off by default. Turning it on requires all three VAPID
+		// values below; the key bytes themselves aren't validated here (the send code does that).
+		PUSH_NOTIFICATIONS_ENABLED: z
+			.enum(['true', 'false'], 'PUSH_NOTIFICATIONS_ENABLED must be "true" or "false"')
+			.default('false')
+			.transform((value) => value === 'true'),
+		VAPID_PUBLIC_KEY: z.string().trim().optional(),
+		VAPID_PRIVATE_KEY: z.string().trim().optional(),
+		// Contact for the push services, a mailto: URL (RFC 8292).
+		VAPID_SUBJECT: z.string().trim().optional(),
 		// Comma-separated IPs/CIDR ranges of the reverse proxies (load balancer, CDN) allowed to
 		// append to X-Forwarded-For. better-auth walks that header right to left, skips these, and
 		// treats the first address that isn't one of them as the real client - so a client-supplied
@@ -106,6 +116,25 @@ const envSchema = z
 	.refine((data) => (data.MEMBERSHIP_API_URL === undefined) === (data.INTERNAL_API_TOKEN === undefined), {
 		message: 'MEMBERSHIP_API_URL and INTERNAL_API_TOKEN must be set together (see .env.example)',
 		path: ['INTERNAL_API_TOKEN'],
+	})
+	.superRefine((data, ctx) => {
+		if (!data.PUSH_NOTIFICATIONS_ENABLED) return;
+		for (const key of ['VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY', 'VAPID_SUBJECT'] as const) {
+			if (!data[key]) {
+				ctx.addIssue({
+					code: 'custom',
+					message: `${key} must be set when PUSH_NOTIFICATIONS_ENABLED=true (see .env.example)`,
+					path: [key],
+				});
+			}
+		}
+		if (data.VAPID_SUBJECT && !data.VAPID_SUBJECT.startsWith('mailto:')) {
+			ctx.addIssue({
+				code: 'custom',
+				message: 'VAPID_SUBJECT must be a mailto: URL, e.g. mailto:admin@example.org',
+				path: ['VAPID_SUBJECT'],
+			});
+		}
 	})
 	.refine((data) => data.HEADERS_TIMEOUT_MS <= data.REQUEST_TIMEOUT_MS, {
 		message: 'HEADERS_TIMEOUT_MS must be <= REQUEST_TIMEOUT_MS (headers are part of the full request)',
@@ -161,4 +190,9 @@ export const config = {
 	membershipApiTimeoutMs: env.MEMBERSHIP_API_TIMEOUT_MS,
 	resendApiKey: env.RESEND_API_KEY,
 	resendFromEmail: env.RESEND_FROM_EMAIL,
+	pushEnabled: env.PUSH_NOTIFICATIONS_ENABLED,
+	// Empty strings when unset; only read while pushEnabled (startup guarantees they are set then).
+	vapidPublicKey: env.VAPID_PUBLIC_KEY ?? '',
+	vapidPrivateKey: env.VAPID_PRIVATE_KEY ?? '',
+	vapidSubject: env.VAPID_SUBJECT ?? '',
 } as const;
