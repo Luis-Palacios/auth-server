@@ -12,10 +12,16 @@ const MAX_ENDPOINT_LENGTH = 2048;
 export function isAllowedPushEndpoint(endpoint: string): boolean {
 	if (endpoint.length > MAX_ENDPOINT_LENGTH || !URL.canParse(endpoint)) return false;
 	const url = new URL(endpoint);
+	// Stored must equal normalized. The WHATWG parser and the legacy url.parse (which a sender may
+	// use) disagree on things like "evil.com%2E.push.apple.com", so only a URL that parsing leaves
+	// unchanged is accepted: no percent-encoded host, no uppercase host, no explicit :443, no dot
+	// segments. It also makes DELETE match exactly what PUT stored.
+	if (url.href !== endpoint) return false;
 	// `port` is '' for the default 443 (also when written out), so any other port fails here.
 	if (url.protocol !== 'https:' || url.username !== '' || url.password !== '' || url.port !== '') return false;
 	// URL lowercases the hostname. A trailing dot ("fcm.googleapis.com.") stays and so fails the match.
 	const host = url.hostname;
+	if (host.split('.').some((label) => label === '')) return false; // empty label: "a..b", trailing dot
 	return EXACT_HOSTS.has(host) || HOST_SUFFIXES.some((suffix) => host.endsWith(suffix));
 }
 

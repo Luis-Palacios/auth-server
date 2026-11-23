@@ -9,8 +9,8 @@ describe('isAllowedPushEndpoint', () => {
 		'https://db5p.notify.windows.com/?token=abc',
 		'https://web.push.apple.com/abc',
 		'https://api.push.apple.com/3/device/abc',
-		'https://FCM.googleapis.com/fcm/send/abc',
-		'https://fcm.googleapis.com:443/fcm/send/abc',
+		// Mixed case and percent-encoding in the path are left alone (href is unchanged).
+		'https://fcm.googleapis.com/fcm/send/AbC-_%7E123',
 	];
 	for (const endpoint of allowed) {
 		it(`accepts ${endpoint}`, () => assert.equal(isAllowedPushEndpoint(endpoint), true));
@@ -30,6 +30,15 @@ describe('isAllowedPushEndpoint', () => {
 		empty: '',
 		localhost: 'https://localhost/abc',
 		'ip address': 'https://127.0.0.1/abc',
+		'percent-encoded dot in host': 'https://evil.com%2E.push.apple.com/x',
+		'percent-encoded dot, lowercase': 'https://evil.com%2e.push.apple.com/x',
+		'trailing encoded dot': 'https://fcm.googleapis.com%2E/x',
+		'encoded dot before suffix': 'https://evil%2Epush.apple.com/x',
+		'empty label': 'https://evil..push.apple.com/x',
+		'uppercase host (not normalized)': 'https://FCM.googleapis.com/fcm/send/abc',
+		'explicit default port (not normalized)': 'https://fcm.googleapis.com:443/fcm/send/abc',
+		'dot segment (not normalized)': 'https://fcm.googleapis.com/a/../b',
+		'backslash (not normalized)': 'https://fcm.googleapis.com\\@evil.com/x',
 		'too long': `https://fcm.googleapis.com/${'a'.repeat(2100)}`,
 	};
 	for (const [name, endpoint] of Object.entries(rejected)) {
