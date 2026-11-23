@@ -17,11 +17,11 @@ describe('conversation push copy', () => {
 	it('new, person row', () => {
 		assert.deepEqual(reportConversationPushCopy('new', conversation, 'en'), {
 			title: 'Roberto Aguilar started a conversation about someone',
-			body: 'Jóvenes Bello Horizonte · report for Thursday, October 8',
+			body: 'Jóvenes Bello Horizonte · report for Thu, Oct 8',
 		});
 		assert.deepEqual(reportConversationPushCopy('new', conversation, 'es'), {
 			title: 'Roberto Aguilar inició una conversación sobre una persona',
-			body: 'Jóvenes Bello Horizonte · reporte del jueves 8 de octubre',
+			body: 'Jóvenes Bello Horizonte · reporte del jue 8 oct',
 		});
 	});
 
@@ -37,7 +37,7 @@ describe('conversation push copy', () => {
 			assert.equal(reportConversationPushCopy('new', data, 'es').title, `Roberto Aguilar comentó en ${es}`);
 			assert.equal(
 				reportConversationPushCopy('new', data, 'en').body,
-				'Jóvenes Bello Horizonte · report for Thursday, October 8',
+				'Jóvenes Bello Horizonte · report for Thu, Oct 8',
 			);
 		});
 	}
@@ -47,11 +47,11 @@ describe('conversation push copy', () => {
 			const data = { ...conversation, topic };
 			assert.deepEqual(reportConversationPushCopy('reply', data, 'en'), {
 				title: 'Roberto Aguilar replied in a conversation',
-				body: 'Jóvenes Bello Horizonte · report for Thursday, October 8',
+				body: 'Jóvenes Bello Horizonte · report for Thu, Oct 8',
 			});
 			assert.deepEqual(reportConversationPushCopy('reply', data, 'es'), {
 				title: 'Roberto Aguilar respondió en una conversación',
-				body: 'Jóvenes Bello Horizonte · reporte del jueves 8 de octubre',
+				body: 'Jóvenes Bello Horizonte · reporte del jue 8 oct',
 			});
 		}
 	});
@@ -69,11 +69,11 @@ describe('report.submitted push copy', () => {
 		const data: ReportSubmittedData = { ...submittedCommon, held: true, attendedCount: 9, peopleCount: 12 };
 		assert.deepEqual(reportSubmittedPushCopy(data, 'en'), {
 			title: 'Jóvenes Bello Horizonte submitted its report',
-			body: 'Thursday, October 8 · 9 of 12 attended · by Ana Pérez',
+			body: 'Thu, Oct 8 · 9 of 12 attended · by Ana Pérez',
 		});
 		assert.deepEqual(reportSubmittedPushCopy(data, 'es'), {
 			title: 'Jóvenes Bello Horizonte envió su reporte',
-			body: 'jueves 8 de octubre · Asistieron 9 de 12 · por Ana Pérez',
+			body: 'jue 8 oct · Asistieron 9 de 12 · por Ana Pérez',
 		});
 	});
 
@@ -81,11 +81,11 @@ describe('report.submitted push copy', () => {
 		const data: ReportSubmittedData = { ...submittedCommon, held: false };
 		assert.deepEqual(reportSubmittedPushCopy(data, 'en'), {
 			title: 'Jóvenes Bello Horizonte didn’t meet',
-			body: 'Thursday, October 8 · reported by Ana Pérez',
+			body: 'Thu, Oct 8 · reported by Ana Pérez',
 		});
 		assert.deepEqual(reportSubmittedPushCopy(data, 'es'), {
 			title: 'Jóvenes Bello Horizonte no se reunió',
-			body: 'jueves 8 de octubre · reportado por Ana Pérez',
+			body: 'jue 8 oct · reportado por Ana Pérez',
 		});
 	});
 });
@@ -98,11 +98,11 @@ describe('report.reminder push copy', () => {
 		const data: ReportReminderData = { ...base, groups: [{ name: 'Bello Horizonte', hasDraft: false }] };
 		assert.deepEqual(reportReminderPushCopy(data, 'en'), {
 			title: 'Time to submit the Bello Horizonte report',
-			body: 'Week of Sunday, November 22',
+			body: 'Week of Nov 22',
 		});
 		assert.deepEqual(reportReminderPushCopy(data, 'es'), {
 			title: 'Es momento de enviar el reporte de Bello Horizonte',
-			body: 'Semana del domingo 22 de noviembre',
+			body: 'Semana del 22 nov',
 		});
 	});
 
@@ -110,11 +110,11 @@ describe('report.reminder push copy', () => {
 		const data: ReportReminderData = { ...base, groups: [{ name: 'Bello Horizonte', hasDraft: true }] };
 		assert.deepEqual(reportReminderPushCopy(data, 'en'), {
 			title: 'Your Bello Horizonte report is still a draft',
-			body: 'Week of Sunday, November 22',
+			body: 'Week of Nov 22',
 		});
 		assert.deepEqual(reportReminderPushCopy(data, 'es'), {
 			title: 'El reporte de Bello Horizonte sigue en borrador',
-			body: 'Semana del domingo 22 de noviembre',
+			body: 'Semana del 22 nov',
 		});
 	});
 
@@ -129,11 +129,11 @@ describe('report.reminder push copy', () => {
 		};
 		assert.deepEqual(reportReminderPushCopy(data, 'en'), {
 			title: 'Time to submit 3 small group reports',
-			body: 'Week of Sunday, November 22',
+			body: 'Week of Nov 22',
 		});
 		assert.deepEqual(reportReminderPushCopy(data, 'es'), {
 			title: 'Es momento de enviar 3 reportes de grupos pequeños',
-			body: 'Semana del domingo 22 de noviembre',
+			body: 'Semana del 22 nov',
 		});
 	});
 });

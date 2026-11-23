@@ -1,12 +1,31 @@
 import type { Locale } from '../emails/locale.js';
-import { formatMeetingDate } from '../emails/shared/meeting-date.js';
 import type { ReportConversationData, ReportReminderData, ReportSubmittedData } from './templates.js';
 
 // Title and body of a push, from a template's already validated `data` (notifications spec, *Copy
 // (en / es)*). The same strings as staff-app's notification list: the title is the entry's title and
 // the body its secondary line. Only what the emails' data carries (rule 8), never comment text.
-// Pure: no I/O, no config. Dates are formatted as in the emails (formatMeetingDate).
+// Pure: no I/O, no config.
 export type PushCopy = { title: string; body: string };
+
+// Dates must read exactly as in staff-app's list, so these copy its helpers (lib/format-date.ts):
+// a date-only value at UTC midnight, formatted in UTC so the calendar day never shifts.
+function formatCalendarWith(iso: string, locale: Locale, options: Intl.DateTimeFormatOptions): string {
+	const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+	if (!match) return '';
+	const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+	return new Intl.DateTimeFormat(locale, { ...options, timeZone: 'UTC' }).format(date);
+}
+
+// {date}: "Thu, Oct 8" / "jue 8 oct" (staff-app's formatCalendarRowDate; Spanish has no comma).
+function formatRowDate(iso: string, locale: Locale): string {
+	const text = formatCalendarWith(iso, locale, { weekday: 'short', month: 'short', day: 'numeric' });
+	return locale === 'es' ? text.replace(',', '') : text;
+}
+
+// {weekStart}: "Nov 22" / "22 nov" (staff-app's formatCalendarShortDate).
+function formatShortDate(iso: string, locale: Locale): string {
+	return formatCalendarWith(iso, locale, { month: 'short', day: 'numeric' });
+}
 
 // The emails' section names (src/emails/report-conversation*.tsx), with the article Spanish needs.
 const sections: Record<Locale, Record<'prayer' | 'praise' | 'followUp', string>> = {
@@ -24,7 +43,7 @@ export function reportConversationPushCopy(
 	data: ReportConversationData,
 	locale: Locale,
 ): PushCopy {
-	const date = formatMeetingDate(data.meetingDate, locale);
+	const date = formatRowDate(data.meetingDate, locale);
 	const { actorName: actor, groupName: group } = data;
 	const body = locale === 'es' ? `${group} · reporte del ${date}` : `${group} · report for ${date}`;
 
@@ -51,7 +70,7 @@ export function reportConversationPushCopy(
 }
 
 export function reportSubmittedPushCopy(data: ReportSubmittedData, locale: Locale): PushCopy {
-	const date = formatMeetingDate(data.meetingDate, locale);
+	const date = formatRowDate(data.meetingDate, locale);
 	const { groupName: group, submitterName: submitter } = data;
 
 	if (!data.held) {
@@ -73,7 +92,7 @@ export function reportSubmittedPushCopy(data: ReportSubmittedData, locale: Local
 
 // One group (submit, or finish its draft) or several (a count). The caller sends `groups` non-empty.
 export function reportReminderPushCopy(data: ReportReminderData, locale: Locale): PushCopy {
-	const weekStart = formatMeetingDate(data.weekStart, locale);
+	const weekStart = formatShortDate(data.weekStart, locale);
 	const body = locale === 'es' ? `Semana del ${weekStart}` : `Week of ${weekStart}`;
 	const [only, ...others] = data.groups;
 
