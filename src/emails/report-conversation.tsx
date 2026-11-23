@@ -110,7 +110,7 @@ const copy: Record<Locale, ConversationCopy> = {
 		},
 		throttle: [
 			'You won’t get another email about this conversation until you open it. To stop these emails, turn off ',
-			{ strong: 'Conversation emails' },
+			{ strong: 'Conversations' },
 			' in My profile.',
 		],
 	},
@@ -180,7 +180,7 @@ const copy: Record<Locale, ConversationCopy> = {
 		},
 		throttle: [
 			'No recibirás otro correo sobre esta conversación hasta que la abras. Para dejar de recibirlos, desactiva ',
-			{ strong: 'Correos de conversaciones' },
+			{ strong: 'Conversaciones' },
 			' en Mi perfil.',
 		],
 	},

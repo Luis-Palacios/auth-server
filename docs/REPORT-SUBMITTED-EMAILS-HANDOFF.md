@@ -54,6 +54,9 @@ Branch **`feature/report-submitted-emails`**. Each stage: `pnpm typecheck`, `pnp
 - `pnpm exec biome check .` fails on `main` already, on tracked files outside `src/` (`.claude/`
   hooks and settings, `.agents/skills/github-pr-review/scripts/gh-as-bot.cjs`: formatting, one
   `useOptionalChain`). Not touched here; `pnpm exec biome check src` is clean.
+- PR #36 review: the conversation emails' throttle line named the switch *Conversation emails* /
+  *Correos de conversaciones*; it now says *Conversations* / *Conversaciones*, the name spec rule 9
+  gives it in the new Email notifications section.
 
 ## Stage 1: Email template
 
