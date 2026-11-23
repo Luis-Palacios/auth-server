@@ -165,9 +165,12 @@ have tests so far; anything that needs the DB or `config` is still checked by ha
     `invalid_request`/`unknown_template`/`invalid_data`, 503 `send_failed` (the caller retries with
     the same key). A new email type is a new entry in `src/notifications/templates.tsx` plus its
     React template in `src/emails/`, never a new route. Templates: `report-conversation.new` and
-    `.reply` (links `/groups/reports/{id}?person=|guest=|section=`) and `report.submitted` (link
+    `.reply` (links `/groups/reports/{id}?person=|guest=|section=`), `report.submitted` (link
     `/groups/reports/{id}`, no query; `held: true` needs `attendedCount` and `peopleCount`,
-    `held: false` forbids them).
+    `held: false` forbids them) and `report.reminder` (links `/groups/reports`,
+    `/groups/reports/new?groupId={id}` or `/groups/reports/{id}/edit`; `weekStart` must be the church
+    Sunday, since it picks the week's verse; the caller sends `groups` sorted and picks the path
+    that matches the variant).
   - `GET /internal/users/with-permission?permission=resource:action&…`: ids of users holding all
     the given permissions (1–20, each must exist in `statement`, else 422 `invalid_permission`).
   - `POST /internal/users/permissions` `{ userIds }` (1–500): each user's `permissionsFor(role)`,

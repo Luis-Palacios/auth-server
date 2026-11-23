@@ -17,7 +17,8 @@ Branch **`feature/report-reminder-emails`**. Each stage: `pnpm typecheck`, `pnpm
 
 | Stage | Status | Commit |
 | --- | --- | --- |
-| 0. Handoff | [x] | written by the workspace session after Stage 2 (the subagent's write was refused) |
+| 0. Handoff | [x] | `51da9d1` (written by the workspace session after Stage 2) |
+| Review fixes (CLAUDE.md template list, handoff labels) | [x] | see `git log` (commit after `51da9d1`) |
 | 1. Template, schema, path and en/es email components | [x] | `7c3a5d5` |
 | 2. Tests | [x] | `68dc9b6` |
 
@@ -33,7 +34,7 @@ Branch **`feature/report-reminder-emails`**. Each stage: `pnpm typecheck`, `pnpm
   em dash in "yet—when" and the " — " before a reference/draft suffix are kept as written.
 - The multi-group list shows the group name in bold (`Strong`) as a `<ul>`; the draft suffix is plain.
   The verse callout is a left-bordered (gold) `Text` with the quote in italics.
-- Stage 2: tests also pin the rotation (1970-01-04 → entry 1, one entry per week, wraps after 7, same
+- Stage 2: tests also pin the rotation (1970-01-04 → the first entry, Romans 12:11, index 0 in code; one entry per week, wraps after 7, same
   entry in en and es) and that the order of `groups` is kept as sent.
 - `pnpm exec biome check .` (whole repo) still fails on tracked files outside `src/` (`.claude/`
   hooks, `.agents/...`), as in the report-submitted handoff; `pnpm exec biome check src` is clean.
