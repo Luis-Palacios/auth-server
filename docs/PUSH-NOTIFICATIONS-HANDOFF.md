@@ -58,18 +58,58 @@ Branch **`feature/notifications-push`**. Each stage: `pnpm typecheck`, `pnpm tes
 - Stage 3: the 10 cap and the upsert run in one transaction under a per-user advisory lock
   (`pg_advisory_xact_lock(hashtext(user_id))`). `p256dh` must be 80-100 and `auth` 16-48 base64url
   characters, no padding. Pure validation lives in `src/notifications/push-input.ts` (tested).
-- Stage 3: the authenticated paths (upsert, cap, delete) were not exercised against the DB: the
-  migration isn't applied locally. Only the 401s were checked against the running dev server.
-- Stage 4: better-auth runs `user.update.after` after the update is saved, so a failing cleanup
-  doesn't undo the ban; banning again retries it. Not exercised against a real ban (migration not
-  applied locally). `src/scripts/set-role.ts` bypasses hooks but never bans, so it's unaffected.
+- Stage 4: better-auth runs `user.update.after` after the update is saved. `src/scripts/set-role.ts`
+  bypasses hooks but never bans, so it's unaffected.
 - Stage 5: `src/notifications/push-copy.ts` exports `reportConversationPushCopy(kind, data, locale)`
   (`kind` `'new' | 'reply'`), `reportSubmittedPushCopy(data, locale)` and
   `reportReminderPushCopy(data, locale)`, all returning `{ title, body }`; the data types are
-  exported from `templates.tsx`. `{weekStart}` uses the emails' `formatMeetingDate` too ("Week of
-  Sunday, November 22" / "Semana del domingo 22 de noviembre"), so staff-app's list should format it
-  the same way. Not truncated: the 4 KB payload budget is for the learning stage to check.
+  exported from `templates.tsx`. Dates match staff-app's list (see *Review fixes*). Not truncated: the 4 KB payload budget is for the learning stage to check.
 - `pnpm exec biome check .` fails on `.agents/` (pre-existing); the checks use `biome check src`.
+
+### Review fixes
+
+Commits `e89bb46` (1), `516b6fe` (3), `49d1311` (2, 4, 6), and this docs commit.
+
+1. **Endpoint normalization (rule 10).** `isAllowedPushEndpoint` now also requires
+   `new URL(endpoint).href === endpoint` (so what is stored equals what was parsed, and DELETE
+   matches it) and rejects any host with an empty label. WHATWG and legacy `url.parse` disagree on
+   `https://evil.com%2E.push.apple.com/x`; it is now 422 `invalid_endpoint`. Side effect: an
+   uppercase host or an explicit `:443` is rejected too; browsers send normalized URLs. Tests cover
+   percent-encoded dots (both cases), a trailing encoded dot, an empty label, dot segments, a
+   backslash, and mixed case/percent-encoding in the path (still accepted).
+2. **Ban hook.** The delete is wrapped in try/catch and logged, so `banUser`'s following
+   `deleteUserSessions` always runs; `updated?.banned`.
+3. **Push copy dates** copy staff-app's `formatCalendarRowDate` (`{date}`: "Thu, Oct 8" / "jue 8
+   oct") and `formatCalendarShortDate` (`{weekStart}`: "Nov 22" / "22 nov"): "Week of Nov 22" /
+   "Semana del 22 nov". They are copied into `push-copy.ts` (not imported across repos); keep both in
+   step. Nothing is asked of staff-app any more.
+4. **LRU delete** also filters on `user_id`, so a row another user's PUT moved meanwhile survives.
+5. **Verified for real** (see below).
+6. **Nits.** Index `push_sends_subscription_id_idx`: I **regenerated the unmerged migration**
+   (`drizzle/20261123224714_push_notifications`, replacing `20261123223632_...`) rather than adding
+   a second one, since it was on no other branch and not applied anywhere yet. The advisory lock is
+   `pg_advisory_xact_lock(7101::int, hashtext(user_id))`. A PUT in an impersonation session
+   (`session.impersonatedBy`) answers 204 and stores nothing (not exercised: no impersonation
+   session was set up).
+
+**Verified against the local DB (`ekklesiaio-auth`) and the dev server on :5000.** The migration was
+applied with `pnpm drizzle-kit migrate`. Three throwaway users (`push-test-{a,b,c}@example.test`, A
+with role `admin`) were created in-process through better-auth's internal adapter with sessions
+(no password, no email sent). To get the flag on, `.env` got `PUSH_NOTIFICATIONS_ENABLED=true` and
+placeholder `VAPID_*` values, the dev server restarted by touching `src/index.ts`; `.env` is restored
+(the four lines removed) and the server restarted again. Results:
+- Flag off: `GET /config` `{ enabled: false, publicKey: null }`, PUT 404 `push_disabled`, DELETE 204.
+- Flag on: `GET /config` returns the key; PUT 204 upserts; 422 `invalid_endpoint` for `example.com`,
+  `http:` and the `%2E` case; 422 `invalid_request` for `{}`; `user_agent` stored cut to 200.
+- B registering A's endpoint moved the row to B; A's DELETE of it was a 204 no-op; B's DELETE twice
+  was 204 both times.
+- 10 subscriptions, re-PUT of `e1`, then an 11th: the least recently used (`e2`) was deleted, the
+  rest kept.
+- Deleting a subscription removed its `push_sends` row (cascade).
+- Admin A banned B through `POST /api/auth/admin/ban-user`: B's subscriptions were deleted, C's kept,
+  and B's session stopped working (401).
+- Cleanup: test users deleted (cascade), `push_subscriptions`, `push_sends` and the users are 0 rows.
+  The local DB keeps the migration applied.
 
 ## Stages 1-5 (plumbing)
 
