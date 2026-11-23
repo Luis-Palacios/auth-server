@@ -37,8 +37,8 @@ Branch **`feature/notifications-push`**. Each stage: `pnpm typecheck`, `pnpm tes
 | --- | --- | --- |
 | 0. This handoff | done | `dc64bf3` |
 | 1. Config: VAPID keys, subject, `PUSH_NOTIFICATIONS_ENABLED` | done | `5d2cae0` |
-| 2. Tables `push_subscriptions` and `push_sends`, migration, purge | done | (this commit) |
-| 3. Routes `GET /api/push/config`, `PUT` and `DELETE /api/push/subscriptions` | pending | |
+| 2. Tables `push_subscriptions` and `push_sends`, migration, purge | done | `ec8cf22` |
+| 3. Routes `GET /api/push/config`, `PUT` and `DELETE /api/push/subscriptions` | done | (see git log) |
 | 4. Ban hook deletes the user's subscriptions | pending | |
 | 5. Push copy (`{ title, body }`, en/es) with tests | pending | |
 | 6. VAPID keys and the `web-push` package | with Luis | |
@@ -48,7 +48,19 @@ Branch **`feature/notifications-push`**. Each stage: `pnpm typecheck`, `pnpm tes
 
 ### Decisions and deviations
 
-(none yet)
+- Stage 3: errors are `{ code, message }` (like `/internal`), including 401 `unauthorized`, unlike
+  `custom-auth`'s `{ error }`. Extra codes: 422 `invalid_request` (bad body shape or body over 4 KB),
+  500 `internal_error`. `GET /api/push/config` also needs a session (401 without).
+- Stage 3: no per-route rate limit: `custom-auth` has none either (better-auth's limiter only covers
+  `/api/auth/*`). Only a 4 KB body limit. Revisit with the other routes if abuse shows up.
+- Stage 3: `DELETE` is not gated on `PUSH_NOTIFICATIONS_ENABLED`, so sign-out cleanup still works
+  after the flag is turned off. `PUT` is (404 `push_disabled`).
+- Stage 3: the 10 cap and the upsert run in one transaction under a per-user advisory lock
+  (`pg_advisory_xact_lock(hashtext(user_id))`). `p256dh` must be 80-100 and `auth` 16-48 base64url
+  characters, no padding. Pure validation lives in `src/notifications/push-input.ts` (tested).
+- Stage 3: the authenticated paths (upsert, cap, delete) were not exercised against the DB: the
+  migration isn't applied locally. Only the 401s were checked against the running dev server.
+- `pnpm exec biome check .` fails on `.agents/` (pre-existing); the checks use `biome check src`.
 
 ## Stages 1-5 (plumbing)
 

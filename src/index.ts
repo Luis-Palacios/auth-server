@@ -9,6 +9,7 @@ import { startNotificationSendsPurge } from './notifications/purge.js';
 import { customAuthRoute } from './routes/custom-auth/index.js';
 import { healthRoute } from './routes/health.js';
 import { internalRoute } from './routes/internal/index.js';
+import { pushRoute } from './routes/push/index.js';
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 
@@ -27,6 +28,7 @@ if (config.corsOrigins.length > 0) {
 }
 app.route('/health', healthRoute);
 app.route('/api/custom-auth', customAuthRoute);
+app.route('/api/push', pushRoute);
 app.route('/internal', internalRoute);
 app.on(['POST', 'GET'], '/api/auth/*', (c) => auth.handler(resolveAuthRequest(c)));
 
