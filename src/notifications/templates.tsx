@@ -6,6 +6,11 @@ import {
 	type ReportConversationEmailProps,
 	reportConversationSubject,
 } from '../emails/report-conversation.js';
+import {
+	ReportSubmittedEmail,
+	type ReportSubmittedEmailProps,
+	reportSubmittedSubject,
+} from '../emails/report-submitted.js';
 
 // The envelope every notification request shares. `template` and `data` are only checked for shape
 // here; what they must contain depends on the template (below).
@@ -30,6 +35,26 @@ const reportConversationData = z.strictObject({
 // so only a path on our own app is ever accepted (never a full URL, never "//host").
 const reportConversationPath =
 	/^\/groups\/reports\/[1-9]\d*\?(?:person|guest)=[1-9]\d*$|^\/groups\/reports\/[1-9]\d*\?section=(?:prayer|praise|followUp)$/;
+
+// `report.submitted`. `held` decides the rest: a held meeting must carry both counts, a no meeting
+// must carry neither (strict objects, so an extra key fails too). Counts are attendance rows
+// (members and guests) and those who attended, so attended can't exceed people.
+const reportSubmittedCommon = {
+	submitterName: z.string().trim().min(1).max(200),
+	groupName: z.string().trim().min(1).max(200),
+	meetingDate: z.iso.date(),
+	reason: z.literal('watcher'),
+};
+const count = z.int().min(0).max(10_000);
+const reportSubmittedData = z.discriminatedUnion('held', [
+	z
+		.strictObject({ ...reportSubmittedCommon, held: z.literal(true), attendedCount: count, peopleCount: count })
+		.refine((data) => data.attendedCount <= data.peopleCount),
+	z.strictObject({ ...reportSubmittedCommon, held: z.literal(false) }),
+]);
+
+// The report itself in staff-app, no query. Anchored, like the conversation links.
+const reportPath = /^\/groups\/reports\/[1-9]\d*$/;
 
 export type RenderContext = { url: string; locale: Locale };
 export type RenderedEmail = { subject: string; react: ReactElement };
@@ -59,6 +84,10 @@ function reportConversationEmail(props: ReportConversationEmailProps): RenderedE
 	return { subject: reportConversationSubject(props), react: <ReportConversationEmail {...props} /> };
 }
 
+function reportSubmittedEmail(props: ReportSubmittedEmailProps): RenderedEmail {
+	return { subject: reportSubmittedSubject(props), react: <ReportSubmittedEmail {...props} /> };
+}
+
 // One entry per template key. A new email type is a new entry here (plus its React template), never
 // a new route.
 export const notificationTemplates: Record<string, TemplateEntry> = {
@@ -71,6 +100,11 @@ export const notificationTemplates: Record<string, TemplateEntry> = {
 		data: reportConversationData,
 		path: reportConversationPath,
 		render: (data, context) => reportConversationEmail({ kind: 'reply', ...data, ...context }),
+	}),
+	'report.submitted': defineTemplate({
+		data: reportSubmittedData,
+		path: reportPath,
+		render: (data, context) => reportSubmittedEmail({ ...data, ...context }),
 	}),
 };
 
