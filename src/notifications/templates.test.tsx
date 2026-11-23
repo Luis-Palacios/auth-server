@@ -160,3 +160,197 @@ describe('report.submitted rendering', () => {
 		assert.match(subject, /Thursday, January 1$/);
 	});
 });
+
+const reminderGroupsOne = [{ name: 'Jóvenes Bello Horizonte', hasDraft: false }];
+const reminderGroupsDraft = [{ name: 'Jóvenes Bello Horizonte', hasDraft: true }];
+const reminderGroupsMulti = [
+	{ name: 'Jóvenes Bello Horizonte', hasDraft: true },
+	{ name: 'Matrimonios Villa Fontana', hasDraft: false },
+];
+const reminder = { recipientName: 'Roberto Aguilar', groups: reminderGroupsOne, weekStart: '2026-11-22' };
+const reminderList = '/groups/reports';
+const reminderNew = '/groups/reports/new?groupId=12';
+const reminderEdit = '/groups/reports/812/edit';
+
+describe('report.reminder data', () => {
+	it('accepts a single group without a draft', () => {
+		assert.deepEqual(validate('report.reminder', reminder, reminderNew)?.data, reminder);
+	});
+
+	it('accepts a single group with a draft', () => {
+		assert.ok(validate('report.reminder', { ...reminder, groups: reminderGroupsDraft }, reminderEdit));
+	});
+
+	it('accepts several groups, mixed drafts', () => {
+		assert.ok(validate('report.reminder', { ...reminder, groups: reminderGroupsMulti }, reminderList));
+	});
+
+	const invalid: Record<string, unknown> = {
+		'no groups': { ...reminder, groups: [] },
+		'51 groups': { ...reminder, groups: Array.from({ length: 51 }, (_, i) => ({ name: `G${i}`, hasDraft: false })) },
+		'group without hasDraft': { ...reminder, groups: [{ name: 'Grupo' }] },
+		'hasDraft as a string': { ...reminder, groups: [{ name: 'Grupo', hasDraft: 'true' }] },
+		'blank group name': { ...reminder, groups: [{ name: '  ', hasDraft: false }] },
+		'extra key on a group': { ...reminder, groups: [{ name: 'Grupo', hasDraft: false, id: 3 }] },
+		'blank recipientName': { ...reminder, recipientName: ' ' },
+		'missing recipientName': { ...reminder, recipientName: undefined },
+		'weekStart not ISO': { ...reminder, weekStart: '11/22/2026' },
+		'weekStart with time': { ...reminder, weekStart: '2026-11-22T00:00:00Z' },
+		'missing weekStart': { ...reminder, weekStart: undefined },
+		'extra key (free text)': { ...reminder, observations: 'Prayed for Ana' },
+		'not an object': 'reminder',
+	};
+	for (const [name, data] of Object.entries(invalid)) {
+		it(`rejects ${name}`, () => {
+			assert.equal(validate('report.reminder', data, reminderList), null);
+		});
+	}
+});
+
+describe('report.reminder path', () => {
+	for (const path of [reminderList, reminderNew, reminderEdit, '/groups/reports/new?groupId=1']) {
+		it(`accepts ${path}`, () => {
+			assert.ok(validate('report.reminder', reminder, path));
+		});
+	}
+
+	const wrong = [
+		'/groups/reports/',
+		'/groups/reports?x=1',
+		'/groups/reports/new',
+		'/groups/reports/new?groupId=',
+		'/groups/reports/new?groupId=0',
+		'/groups/reports/new?groupId=012',
+		'/groups/reports/new?groupId=12&x=1',
+		'/groups/reports/new?groupId=abc',
+		'/groups/reports/812',
+		'/groups/reports/812/edit/',
+		'/groups/reports/0/edit',
+		'/groups/reports/012/edit',
+		'/groups/reports/812/edit?x=1',
+		'/groups/reports\n',
+		'groups/reports',
+		'//evil.example/groups/reports',
+		'https://evil.example/groups/reports',
+		'',
+	];
+	for (const path of wrong) {
+		it(`rejects ${JSON.stringify(path)}`, () => {
+			assert.equal(validate('report.reminder', reminder, path), null);
+		});
+	}
+});
+
+describe('report.reminder rendering', () => {
+	it('single group, no draft, English', async () => {
+		const { subject, text } = await renderText('report.reminder', reminder, reminderNew, 'en');
+		assert.equal(subject, 'Time to submit your small group report');
+		assert.match(text, /Hi Roberto Aguilar, thank you for shepherding Jóvenes Bello Horizonte this week\./);
+		assert.match(text, /please submit this week’s report so the elders can pray with you and care for your group\./);
+		assert.match(text, /Weekly reminder/i);
+		assert.match(text, /Submit report/);
+		assert.match(text, /You’re getting this because you lead or co-lead an open small group\./);
+		assert.ok(text.includes(url));
+	});
+
+	it('single group, no draft, Spanish', async () => {
+		const { subject, text } = await renderText('report.reminder', reminder, reminderNew, 'es');
+		assert.equal(subject, 'Es momento de enviar el reporte de tu grupo pequeño');
+		assert.match(text, /Hola Roberto Aguilar, gracias por cuidar y servir a Jóvenes Bello Horizonte esta semana\./);
+		assert.match(text, /Enviar reporte/);
+		assert.match(text, /Recibes este correo porque lideras o co-lideras un grupo pequeño activo\./);
+	});
+
+	it('single group with a draft, English', async () => {
+		const data = { ...reminder, groups: reminderGroupsDraft };
+		const { subject, text } = await renderText('report.reminder', data, reminderEdit, 'en');
+		assert.equal(subject, 'Don’t forget to submit your small group report draft');
+		assert.match(text, /You have a saved draft that hasn’t been submitted yet—when you have a moment/);
+		assert.match(text, /Review & submit draft/);
+	});
+
+	it('single group with a draft, Spanish', async () => {
+		const data = { ...reminder, groups: reminderGroupsDraft };
+		const { subject, text } = await renderText('report.reminder', data, reminderEdit, 'es');
+		assert.equal(subject, 'No olvides enviar el borrador del reporte de tu grupo pequeño');
+		assert.match(text, /Tienes un borrador guardado que aún no ha sido enviado; cuando tengas un momento/);
+		assert.match(text, /Revisar y enviar borrador/);
+	});
+
+	it('several groups, English, keeps the given order and flags drafts', async () => {
+		const data = { ...reminder, groups: [...reminderGroupsMulti].reverse() };
+		const { subject, text } = await renderText('report.reminder', data, reminderList, 'en');
+		assert.equal(subject, 'Time to submit your small group reports');
+		assert.match(text, /thank you for shepherding your small groups this week\./);
+		assert.match(text, /Open reports/);
+		const villa = text.indexOf('Matrimonios Villa Fontana');
+		const bello = text.indexOf('Jóvenes Bello Horizonte');
+		assert.ok(villa !== -1 && bello > villa, 'groups stay in the order sent');
+		assert.match(text, /Jóvenes Bello Horizonte — draft saved, not submitted yet/);
+		assert.doesNotMatch(text, /Matrimonios Villa Fontana — /);
+	});
+
+	it('several groups, Spanish', async () => {
+		const data = { ...reminder, groups: reminderGroupsMulti };
+		const { subject, text } = await renderText('report.reminder', data, reminderList, 'es');
+		assert.equal(subject, 'Es momento de enviar los reportes de tus grupos pequeños');
+		assert.match(text, /gracias por cuidar y servir a tus grupos pequeños esta semana\./);
+		assert.match(text, /Abrir reportes/);
+		assert.match(text, /Jóvenes Bello Horizonte — borrador guardado, aún sin enviar/);
+	});
+});
+
+describe('report.reminder weekly verse', () => {
+	const en = [
+		'Romans 12:11',
+		'Galatians 6:9',
+		'Colossians 3:23–24',
+		'1 Corinthians 15:58',
+		'Ecclesiastes 9:10',
+		'Proverbs 21:5',
+		'2 Peter 1:5–7',
+	];
+	const es = [
+		'Romanos 12:11',
+		'Gálatas 6:9',
+		'Colosenses 3:23–24',
+		'1 Corintios 15:58',
+		'Eclesiastés 9:10',
+		'Proverbios 21:5',
+		'2 Pedro 1:5–7',
+	];
+
+	// The index of the one reference the email carries for that week.
+	async function verseOf(weekStart: string, locale: Locale) {
+		const { text } = await renderText('report.reminder', { ...reminder, weekStart }, reminderNew, locale);
+		const found = (locale === 'en' ? en : es).flatMap((reference, index) =>
+			text.includes(`— ${reference}`) ? [index] : [],
+		);
+		assert.equal(found.length, 1, `exactly one verse for ${weekStart}`);
+		return found[0] as number;
+	}
+
+	it('counts whole days from 1970-01-01, seven days per entry', async () => {
+		// Days 0-6 are entry 0 (1970-01-04 is the first Sunday), days 7-13 entry 1, and so on.
+		assert.equal(await verseOf('1970-01-04', 'en'), 0);
+		assert.equal(await verseOf('1970-01-11', 'en'), 1);
+		assert.equal(await verseOf('1970-01-18', 'en'), 2);
+		assert.equal(await verseOf('1970-02-22', 'en'), 7 % 7);
+	});
+
+	it('advances one entry every church Sunday, then wraps', async () => {
+		const start = Date.UTC(2026, 10, 22); // Sunday, November 22, 2026
+		const seen: number[] = [];
+		for (let week = 0; week < 15; week++) {
+			seen.push(await verseOf(new Date(start + week * 7 * 86_400_000).toISOString().slice(0, 10), 'en'));
+		}
+		assert.equal(new Set(seen.slice(0, 7)).size, 7);
+		seen.forEach((index, week) => {
+			assert.equal(index, ((seen[0] as number) + week) % 7);
+		});
+	});
+
+	it('picks the same entry in both languages', async () => {
+		assert.equal(await verseOf('2026-11-22', 'es'), await verseOf('2026-11-22', 'en'));
+	});
+});
