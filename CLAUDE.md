@@ -184,6 +184,14 @@ have tests so far; anything that needs the DB or `config` is still checked by ha
   already in flight. Rows are kept 48 hours (longer than Resend's 24-hour idempotency window):
   `src/notifications/purge.ts` deletes older ones a minute after start and then hourly (`unref`'d
   timers, stopped in `shutdown.ts`).
+- **Web Push plumbing** (`docs/PUSH-NOTIFICATIONS-HANDOFF.md`): `push_subscriptions` and `push_sends`
+  (`src/data/schemas/push.ts`, `push_sends` cascades from the subscription, purged at 48 h with
+  `notification_sends`). Session-cookie routes under `/api/push` (`src/routes/push/`): `GET /config`,
+  `PUT`/`DELETE /subscriptions`, errors `{ code, message }`. Endpoint rules in
+  `src/notifications/push-input.ts`. A ban deletes the user's subscriptions
+  (`databaseHooks.user.update.after`). `src/notifications/push-copy.ts` renders `{ title, body }`.
+  Off unless `PUSH_NOTIFICATIONS_ENABLED`, which then requires the three `VAPID_*` values. The send
+  itself is not built yet (learning stages in the handoff).
 - **Recipient language**: `user.locale` (`en`/`es`, a better-auth `additionalFields` entry) picks
   the email's language. `fillLocaleIfEmpty` in `auth.ts`, on `databaseHooks.session.create.after`
   and `session.update.after`, fills it from the request's `Accept-Language` only while it's empty

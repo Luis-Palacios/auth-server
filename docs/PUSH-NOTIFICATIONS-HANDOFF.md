@@ -40,7 +40,7 @@ Branch **`feature/notifications-push`**. Each stage: `pnpm typecheck`, `pnpm tes
 | 2. Tables `push_subscriptions` and `push_sends`, migration, purge | done | `ec8cf22` |
 | 3. Routes `GET /api/push/config`, `PUT` and `DELETE /api/push/subscriptions` | done | `e60f7fd` |
 | 4. Ban hook deletes the user's subscriptions | done | `e845bb3` |
-| 5. Push copy (`{ title, body }`, en/es) with tests | done | (see git log) |
+| 5. Push copy (`{ title, body }`, en/es) with tests | done | `db7d465` |
 | 6. VAPID keys and the `web-push` package | with Luis | |
 | 7. The send: payload, encryption, `TTL` / `Urgency` / `Topic` | with Luis | |
 | 8. Fan-out, push-service responses, `push_sends` | with Luis | |
