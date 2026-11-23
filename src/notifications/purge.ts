@@ -1,6 +1,7 @@
 import { lt, sql } from 'drizzle-orm';
 import { db } from '../data/database.js';
 import { notificationSends } from '../data/schemas/notification-sends.js';
+import { pushSends } from '../data/schemas/push.js';
 
 const PURGE_EVERY_MS = 60 * 60 * 1000; // hourly
 const FIRST_PURGE_AFTER_MS = 60 * 1000; // a minute after start, off the startup path
@@ -15,12 +16,25 @@ export async function purgeOldNotificationSends(): Promise<number> {
 	return result.rowCount ?? 0;
 }
 
+// Same 48 h and same reasoning as above: a push delivery lives 24 h.
+export async function purgeOldPushSends(): Promise<number> {
+	const result = await db.delete(pushSends).where(lt(pushSends.createdAt, sql`now() - interval '48 hours'`));
+	return result.rowCount ?? 0;
+}
+
 async function runPurge(): Promise<void> {
 	try {
 		const purged = await purgeOldNotificationSends();
 		if (purged > 0) console.log(`Purged ${purged} notification sends older than 48 h`);
 	} catch (error) {
 		console.error('Purging notification sends failed', error);
+	}
+	// Separate try so a failure in one table never skips the other.
+	try {
+		const purged = await purgeOldPushSends();
+		if (purged > 0) console.log(`Purged ${purged} push sends older than 48 h`);
+	} catch (error) {
+		console.error('Purging push sends failed', error);
 	}
 }
 

@@ -35,9 +35,9 @@ Branch **`feature/notifications-push`**. Each stage: `pnpm typecheck`, `pnpm tes
 
 | Stage | Status | Commit |
 | --- | --- | --- |
-| 0. This handoff | done | (first commit) |
-| 1. Config: VAPID keys, subject, `PUSH_NOTIFICATIONS_ENABLED` | pending | |
-| 2. Tables `push_subscriptions` and `push_sends`, migration, purge | pending | |
+| 0. This handoff | done | `dc64bf3` |
+| 1. Config: VAPID keys, subject, `PUSH_NOTIFICATIONS_ENABLED` | done | `5d2cae0` |
+| 2. Tables `push_subscriptions` and `push_sends`, migration, purge | done | (this commit) |
 | 3. Routes `GET /api/push/config`, `PUT` and `DELETE /api/push/subscriptions` | pending | |
 | 4. Ban hook deletes the user's subscriptions | pending | |
 | 5. Push copy (`{ title, body }`, en/es) with tests | pending | |
