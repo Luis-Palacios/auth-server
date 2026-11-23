@@ -1,5 +1,6 @@
 import { isIP } from 'node:net';
 import { z } from 'zod';
+import { isVapidPrivateKey, isVapidPublicKey } from './vapid-key.js';
 
 // One TRUSTED_PROXIES entry: a bare IP ("10.0.0.5") or a CIDR range ("10.0.0.0/16", "2400:cb00::/32").
 // better-auth accepts both but only *warns* on a malformed one and then ignores it, which can silently
@@ -133,6 +134,24 @@ const envSchema = z
 				code: 'custom',
 				message: 'VAPID_SUBJECT must be a mailto: URL, e.g. mailto:admin@example.org',
 				path: ['VAPID_SUBJECT'],
+			});
+		}
+		// The key pair is ECDSA P-256 (RFC 8292), base64url without padding, as `web-push
+		// generate-vapid-keys` prints it. Checked here so a pasted-wrong key fails at startup, not on the
+		// first push. The public key is the uncompressed curve point (0x04, then X and Y: 65 bytes); the
+		// private key is the 32-byte scalar.
+		if (data.VAPID_PUBLIC_KEY && !isVapidPublicKey(data.VAPID_PUBLIC_KEY)) {
+			ctx.addIssue({
+				code: 'custom',
+				message: 'VAPID_PUBLIC_KEY must be a P-256 public key (see .env.example: web-push generate-vapid-keys)',
+				path: ['VAPID_PUBLIC_KEY'],
+			});
+		}
+		if (data.VAPID_PRIVATE_KEY && !isVapidPrivateKey(data.VAPID_PRIVATE_KEY)) {
+			ctx.addIssue({
+				code: 'custom',
+				message: 'VAPID_PRIVATE_KEY must be a P-256 private key (see .env.example: web-push generate-vapid-keys)',
+				path: ['VAPID_PRIVATE_KEY'],
 			});
 		}
 	})
