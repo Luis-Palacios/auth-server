@@ -1,0 +1,25 @@
+{
+	"branch-name": {
+		"PreToolUse": [
+			{
+				"matcher": "run_command",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "node ./hooks/branch-name.mjs",
+						"timeout": 10
+					}
+				]
+			}
+		]
+	},
+	"lint-and-typecheck": {
+		"Stop": [
+			{
+				"type": "command",
+				"command": "node ./hooks/check.mjs",
+				"timeout": 180
+			}
+		]
+	}
+}
