@@ -7,6 +7,11 @@ import {
 	reportConversationSubject,
 } from '../emails/report-conversation.js';
 import {
+	ReportReminderEmail,
+	type ReportReminderEmailProps,
+	reportReminderSubject,
+} from '../emails/report-reminder.js';
+import {
 	ReportSubmittedEmail,
 	type ReportSubmittedEmailProps,
 	reportSubmittedSubject,
@@ -56,6 +61,22 @@ const reportSubmittedData = z.discriminatedUnion('held', [
 // The report itself in staff-app, no query. Anchored, like the conversation links.
 const reportPath = /^\/groups\/reports\/[1-9]\d*$/;
 
+// `report.reminder`: one weekly email per leader listing the groups still missing this week's
+// report. No report content (spec rule 16). `weekStart` is the church Sunday and picks the verse.
+const reportReminderGroup = z.strictObject({
+	name: z.string().trim().min(1).max(200),
+	hasDraft: z.boolean(),
+});
+const reportReminderData = z.strictObject({
+	recipientName: z.string().trim().min(1).max(200),
+	groups: z.array(reportReminderGroup).min(1).max(50),
+	weekStart: z.iso.date(),
+});
+
+// The reports list, the new-report form for one group, or one draft's edit page. Anchored.
+const reportReminderPath =
+	/^\/groups\/reports$|^\/groups\/reports\/new\?groupId=[1-9]\d*$|^\/groups\/reports\/[1-9]\d*\/edit$/;
+
 export type RenderContext = { url: string; locale: Locale };
 export type RenderedEmail = { subject: string; react: ReactElement };
 
@@ -88,6 +109,10 @@ function reportSubmittedEmail(props: ReportSubmittedEmailProps): RenderedEmail {
 	return { subject: reportSubmittedSubject(props), react: <ReportSubmittedEmail {...props} /> };
 }
 
+function reportReminderEmail(props: ReportReminderEmailProps): RenderedEmail {
+	return { subject: reportReminderSubject(props), react: <ReportReminderEmail {...props} /> };
+}
+
 // One entry per template key. A new email type is a new entry here (plus its React template), never
 // a new route.
 export const notificationTemplates: Record<string, TemplateEntry> = {
@@ -105,6 +130,11 @@ export const notificationTemplates: Record<string, TemplateEntry> = {
 		data: reportSubmittedData,
 		path: reportPath,
 		render: (data, context) => reportSubmittedEmail({ ...data, ...context }),
+	}),
+	'report.reminder': defineTemplate({
+		data: reportReminderData,
+		path: reportReminderPath,
+		render: (data, context) => reportReminderEmail({ ...data, ...context }),
 	}),
 };
 
