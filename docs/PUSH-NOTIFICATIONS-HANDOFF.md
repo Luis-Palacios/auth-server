@@ -96,6 +96,15 @@ Branch **`feature/notifications-push`**. Each stage: `pnpm typecheck`, `pnpm tes
 6. Accepted: an endpoint moved to another user between the read and the send gets one push meant for
    the old owner (a 4 s window; the content follows the lock-screen rule).
 
+### PR #40 bot review (`f44009f`)
+
+- **Blocking, fixed:** fix 4 above locked the sent rows `FOR SHARE` and then updated `last_used_at` in
+  the same transaction; two deliveries to the same person could both hold the share lock and deadlock
+  on the update. Now `ORDER BY id FOR NO KEY UPDATE` (still blocks a DELETE, never needs an upgrade,
+  same lock order everywhere).
+- Nits: the fan-out uses `toWebPushSubscription`; a stale config comment fixed.
+- A real push was later received in Chrome through this route (staff-app's PR has the details).
+
 ### Review fixes
 
 Commits `e89bb46` (1), `516b6fe` (3), `49d1311` (2, 4, 6), and this docs commit.
