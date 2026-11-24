@@ -84,7 +84,7 @@ const envSchema = z
 		RESEND_API_KEY: z.string().min(1, 'RESEND_API_KEY must be set (see .env.example)'),
 		RESEND_FROM_EMAIL: z.string().min(1, 'RESEND_FROM_EMAIL must be set (see .env.example)'),
 		// Web Push (notifications spec, Part 2). Off by default. Turning it on requires all three VAPID
-		// values below; the key bytes themselves aren't validated here (the send code does that).
+		// values below, checked as one P-256 pair in the superRefine further down.
 		PUSH_NOTIFICATIONS_ENABLED: z
 			.enum(['true', 'false'], 'PUSH_NOTIFICATIONS_ENABLED must be "true" or "false"')
 			.default('false')

@@ -2,7 +2,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '../data/database.js';
 import { pushSends, pushSubscriptions } from '../data/schemas/push.js';
 import { pushCopyFor } from './push-copy.js';
-import { encodePushMessage } from './push-message.js';
+import { encodePushMessage, toWebPushSubscription } from './push-message.js';
 import { judgeDevice, judgeRequest, type PushVerdict } from './push-outcome.js';
 import { type DeviceAnswer, sendToDevice } from './push-send.js';
 import { vapidDetails } from './push-vapid.js';
@@ -93,12 +93,7 @@ export async function fanOutPush(delivery: PushDelivery): Promise<FanoutResult> 
 		answers = await Promise.all(
 			pending.map((s) =>
 				withDeadline(
-					sendToDevice(
-						{ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-						payload,
-						delivery.idempotencyKey,
-						{ vapid: vapidDetails },
-					),
+					sendToDevice(toWebPushSubscription(s), payload, delivery.idempotencyKey, { vapid: vapidDetails }),
 					deadline,
 				),
 			),
@@ -142,7 +137,11 @@ export async function fanOutPush(delivery: PushDelivery): Promise<FanoutResult> 
 					.select({ id: pushSubscriptions.id })
 					.from(pushSubscriptions)
 					.where(inArray(pushSubscriptions.id, sentIds))
-					.for('share')
+					// NO KEY UPDATE, not SHARE: the update below would have to upgrade a shared lock, and two
+					// deliveries to the same person would then wait on each other (deadlock). It still blocks
+					// a DELETE, and the order by id keeps two transactions locking rows in the same order.
+					.orderBy(pushSubscriptions.id)
+					.for('no key update')
 			).map((row) => row.id);
 			if (stillThere.length === 0) return;
 			await tx
