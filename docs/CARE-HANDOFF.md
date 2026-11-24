@@ -27,7 +27,7 @@ stage 2 here. Don't build a second endpoint for it.
 
 | Stage | Status | Commit |
 | --- | --- | --- |
-| 1. `careLog: all, view, create` (Part 1) | ✅ | the commit that adds this row (`git log -1 --format=%h -- docs/CARE-HANDOFF.md` on `feature/care-log`) |
+| 1. `careLog: all, view, create` (Part 1) | ✅ | 074be31 |
 | 2. `care: all, view, create, update` (Part 2) | ⬜ | |
 
 ### Decisions and deviations
@@ -36,7 +36,11 @@ stage 2 here. Don't build a second endpoint for it.
   hook blocks any name without the `feature/` prefix.
 - Stage 1 check: `permissionsFor` run through `tsx` for all six roles, a missing role, `null` and
   `"toString"`; all as expected. `pnpm exec biome check .` also fails on `main` itself, on
-  `.agents/skills/github-pr-review/scripts/gh-as-bot.cjs` (not part of this change); `src` and `docs` are clean. No live session or decoded token was checked (no servers started).
+  `.agents/skills/github-pr-review/scripts/gh-as-bot.cjs`, `.claude/hooks/check-tools.mjs` and
+  `.claude/settings.json` (not part of this change); `src` and `docs` are clean. `pnpm test` passes
+  (175). No live session or decoded token was checked (no servers started).
+- Review (spec-reviewer): no blockers. Fixed: the header comment in `statements.ts` now names
+  `careLog: all` among the scope-lifting actions.
 
 ## Stage 1: `careLog` (Part 1, branch `feature/care-log`)
 

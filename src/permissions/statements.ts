@@ -9,6 +9,7 @@ import { adminAc, defaultStatements } from 'better-auth/plugins/admin/access';
 // record, without it only to the caller's own groups and their active members (for guests: the guests
 // in the guest groups they lead). The scope itself is enforced by membership-management.
 // smallGroupReports follows the smallGroups scope. There is no `guests: delete` on purpose.
+// `careLog: all` lifts a scope too, its own (see its comment).
 const appStatement = {
 	// `setStatus` marks a member inactive or reactivates them, and is also what lets a caller see the
 	// reason, note and status history (inactive-members spec, rules 4 and 5).
