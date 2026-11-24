@@ -30,6 +30,17 @@ app.route('/health', healthRoute);
 app.route('/api/custom-auth', customAuthRoute);
 app.route('/api/push', pushRoute);
 app.route('/internal', internalRoute);
+// The JWKS for service-to-service callers (membership-management's PyJWKClient), answered in-process
+// so it skips better-auth's rate limiter. That limiter can't find a client IP for a call with no
+// X-Forwarded-For, which only happens inside the VPC (the ALB always appends one), and it logs that
+// only once per process. So without this, membership-management's first key fetch after each restart
+// used up the one warning that should catch a staff-app call that lost the header (the shared-bucket
+// bug, DEPLOYMENT-ROADMAP.md Phase 8). Requests carrying the header (browsers through staff-app's
+// proxy) still go through the handler below and keep their per-IP limit. Same JSON either way.
+app.get('/api/auth/.well-known/jwks.json', async (c, next) => {
+	if (c.req.header('x-forwarded-for') !== undefined) return next();
+	return c.json(await auth.api.getJwks());
+});
 app.on(['POST', 'GET'], '/api/auth/*', (c) => auth.handler(resolveAuthRequest(c)));
 
 // better-auth's rate limiter keys requests by client IP, read from X-Forwarded-For (see
