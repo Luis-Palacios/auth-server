@@ -66,8 +66,8 @@ have tests so far; anything that needs the DB or `config` is still checked by ha
   `customRules` raises the max to 300 for `/get-session` and `/token`, and the count only resets
   after a full window with no allowed request, so it isn't a per-window rate),
   and the `admin`, `jwt` (JWKS served at `/.well-known/jwks.json`), and `openAPI` plugins.
-  A JWKS request with no `X-Forwarded-For` (membership-management's key fetch, from inside the VPC)
-  is answered in-process by a route in `src/index.ts` and skips the rate limiter, so it doesn't use
+  When `TRUSTED_PROXIES` is set, a JWKS request with no `X-Forwarded-For` (membership-management's
+  key fetch, from inside the VPC) is answered in-process by a route in `src/index.ts` and skips the rate limiter, so it doesn't use
   up better-auth's once-per-process "could not determine a client IP" warning; requests with the
   header still go through `auth.handler` and its per-IP limit.
   `BETTER_AUTH_SECRET` (32+ chars, high entropy — `openssl rand -base64 32`), `BETTER_AUTH_URL`,

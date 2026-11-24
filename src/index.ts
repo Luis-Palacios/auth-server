@@ -37,8 +37,10 @@ app.route('/internal', internalRoute);
 // used up the one warning that should catch a staff-app call that lost the header (the shared-bucket
 // bug, DEPLOYMENT-ROADMAP.md Phase 8). Requests carrying the header (browsers through staff-app's
 // proxy) still go through the handler below and keep their per-IP limit. Same JSON either way.
+// Only behind trusted proxies: with TRUSTED_PROXIES empty, nothing guarantees a headerless request is
+// internal, and resolveAuthRequest fills the header from the TCP peer, so the warning can't fire there.
 app.get('/api/auth/.well-known/jwks.json', async (c, next) => {
-	if (c.req.header('x-forwarded-for') !== undefined) return next();
+	if (config.trustedProxies.length === 0 || c.req.header('x-forwarded-for') !== undefined) return next();
 	return c.json(await auth.api.getJwks());
 });
 app.on(['POST', 'GET'], '/api/auth/*', (c) => auth.handler(resolveAuthRequest(c)));
