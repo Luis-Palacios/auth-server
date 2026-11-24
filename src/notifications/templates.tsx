@@ -25,6 +25,12 @@ export const notificationEnvelope = z.strictObject({
 	template: z.string().max(100),
 	data: z.unknown(),
 	path: z.string(),
+	// Notifications spec Part 2. Absent = email, so older callers are unchanged. With "push",
+	// notificationId (the in-app entry the push opens, null while in-app is off) and badgeCount (the
+	// recipient's unread count) are required; with "email" they must be absent.
+	channel: z.enum(['email', 'push']).optional(),
+	notificationId: z.int().min(1).nullable().optional(),
+	badgeCount: z.int().min(0).max(1_000_000).optional(),
 });
 
 const reportConversationData = z.strictObject({

@@ -118,3 +118,20 @@ export function reportReminderPushCopy(data: ReportReminderData, locale: Locale)
 		body,
 	};
 }
+
+// The copy for a template key, from data the template already validated (templates.tsx), so the casts
+// only restate what that schema guaranteed. undefined for a template that has no push (none yet).
+export function pushCopyFor(template: string, data: unknown, locale: Locale): PushCopy | undefined {
+	switch (template) {
+		case 'report-conversation.new':
+			return reportConversationPushCopy('new', data as ReportConversationData, locale);
+		case 'report-conversation.reply':
+			return reportConversationPushCopy('reply', data as ReportConversationData, locale);
+		case 'report.submitted':
+			return reportSubmittedPushCopy(data as ReportSubmittedData, locale);
+		case 'report.reminder':
+			return reportReminderPushCopy(data as ReportReminderData, locale);
+		default:
+			return undefined;
+	}
+}
