@@ -11,8 +11,8 @@ cuidado*). Read the cross-repo spec first: `../docs/specs/care.md` (workspace fo
 - Admins are treated exactly as elders (rule 20): both get every action through the
   `appStatement` spread. Nothing checks a role name, so splitting them later is a change here only.
 
-Each part is its own branch, the same name in every repo: **`care-log`** for Part 1 (stage 1),
-**`care`** for Part 2 (stage 2). Each stage must pass `pnpm typecheck` and
+Each part is its own branch, the same name in every repo: **`feature/care-log`** for Part 1 (stage 1),
+**`feature/care`** for Part 2 (stage 2). Each stage must pass `pnpm typecheck` and
 `pnpm exec biome check .`.
 
 **Unblocks:** membership-management and staff-app. Each part starts here: stage 1 before the care
@@ -27,14 +27,18 @@ stage 2 here. Don't build a second endpoint for it.
 
 | Stage | Status | Commit |
 | --- | --- | --- |
-| 1. `careLog: all, view, create` (Part 1) | ⬜ | |
+| 1. `careLog: all, view, create` (Part 1) | ✅ | the commit that adds this row (`git log -1 --format=%h -- docs/CARE-HANDOFF.md` on `feature/care-log`) |
 | 2. `care: all, view, create, update` (Part 2) | ⬜ | |
 
 ### Decisions and deviations
 
-- (none yet)
+- Branch names are `feature/care-log` and `feature/care`, not `care-log` and `care`: the workspace
+  hook blocks any name without the `feature/` prefix.
+- Stage 1 check: `permissionsFor` run through `tsx` for all six roles, a missing role, `null` and
+  `"toString"`; all as expected. `pnpm exec biome check .` also fails on `main` itself, on
+  `.agents/skills/github-pr-review/scripts/gh-as-bot.cjs` (not part of this change); `src` and `docs` are clean. No live session or decoded token was checked (no servers started).
 
-## Stage 1: `careLog` (Part 1, branch `care-log`)
+## Stage 1: `careLog` (Part 1, branch `feature/care-log`)
 
 In `src/permissions/statements.ts`:
 
@@ -59,7 +63,7 @@ In `src/permissions/statements.ts`:
 
 Note in the log whether you also checked a live session or a decoded token.
 
-## Stage 2: `care` (Part 2, branch `care`)
+## Stage 2: `care` (Part 2, branch `feature/care`)
 
 In `src/permissions/statements.ts`:
 

@@ -24,6 +24,13 @@ const appStatement = {
 	invites: ['create', 'cancel'],
 	// Edit the caller's own linked member (name, phone, address, birth date, sex). Every role but `pending`.
 	ownProfile: ['update'],
+	// A care log entry records a call, messages, a meeting, a visit, something someone told us, or a note
+	// about members or guests (care spec, rules 1-13). `all` lifts the scope: every entry, `Elders only`
+	// ones included. Without it, a caller sees the entries they wrote and the ones shared with the leaders
+	// of people in their scope (rule 8), and logs only about people in their scope (rule 7). There's no
+	// `update` or `delete`: people edit and delete only their own entries, checked by authorship in
+	// membership-management (rule 10).
+	careLog: ['all', 'view', 'create'],
 } as const;
 
 // Kept out of `appStatement` on purpose: elder spreads that, and this must stay admin-only. Holding
@@ -71,6 +78,7 @@ export const smallGroupLeader = accessControl.newRole({
 	ownProfile: ['update'],
 	smallGroups: ['view', 'update', 'manageMembers'],
 	smallGroupReports: ['view', 'create', 'update', 'delete'],
+	careLog: ['view', 'create'],
 });
 
 // Same as smallGroupLeader for now. A separate role so it can grow on its own.
@@ -80,6 +88,7 @@ export const deacon = accessControl.newRole({
 	ownProfile: ['update'],
 	smallGroups: ['view', 'update', 'manageMembers'],
 	smallGroupReports: ['view', 'create', 'update', 'delete'],
+	careLog: ['view', 'create'],
 });
 
 // Every role the admin plugin accepts (src/lib/auth.ts) and the only valid values for user.role.
