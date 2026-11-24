@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import webpush from 'web-push';
-import { isVapidPrivateKey, isVapidPublicKey } from './vapid-key.js';
+import { isVapidPair, isVapidPrivateKey, isVapidPublicKey } from './vapid-key.js';
 
 describe('VAPID key checks', () => {
 	const { publicKey, privateKey } = webpush.generateVAPIDKeys();
@@ -21,6 +21,18 @@ describe('VAPID key checks', () => {
 		assert.equal(isVapidPrivateKey(`${privateKey}=`), false);
 		const standard = Buffer.from(publicKey, 'base64url').toString('base64');
 		if (standard.replace(/=+$/, '') !== publicKey) assert.equal(isVapidPublicKey(standard), false);
+	});
+
+	it('accepts the pair and rejects halves of different pairs', () => {
+		const other = webpush.generateVAPIDKeys();
+		assert.equal(isVapidPair(publicKey, privateKey), true);
+		assert.equal(isVapidPair(publicKey, other.privateKey), false);
+		assert.equal(isVapidPair(other.publicKey, privateKey), false);
+	});
+
+	it('rejects a private key outside the curve range', () => {
+		const zero = Buffer.alloc(32).toString('base64url');
+		assert.equal(isVapidPair(publicKey, zero), false);
 	});
 
 	it('rejects a 65-byte value that is not an uncompressed point', () => {

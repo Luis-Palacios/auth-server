@@ -22,6 +22,10 @@ describe('judgeDevice', () => {
 		});
 	}
 
+	it('keys web-push cannot use are gone', () => {
+		assert.equal(judgeDevice({ kind: 'unusable', reason: 'Error' }), 'gone');
+	});
+
 	it('no answer and the deadline are transient', () => {
 		assert.equal(judgeDevice({ kind: 'unreachable', reason: 'ETIMEDOUT' }), 'transient');
 		assert.equal(judgeDevice('deadline'), 'transient');

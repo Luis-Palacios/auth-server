@@ -36,7 +36,14 @@ function withDeadline(
 	return Promise.race([answer, deadline]);
 }
 
+function describe(answer: DeviceAnswer | 'deadline'): string {
+	if (answer === 'deadline') return 'deadline';
+	return answer.kind === 'answered' ? String(answer.status) : answer.reason;
+}
+
 export async function fanOutPush(delivery: PushDelivery): Promise<FanoutResult> {
+	// The budget runs from here, so slow database reads before the sends eat into it too.
+	const startedAt = Date.now();
 	// The same recipient rules as email: exists, verified, not banned. A ban also deleted their
 	// subscriptions (rule 9); this covers a ban whose cleanup failed.
 	const recipient = await findRecipient(delivery.recipientUserId);
@@ -79,7 +86,7 @@ export async function fanOutPush(delivery: PushDelivery): Promise<FanoutResult> 
 
 	let timer: NodeJS.Timeout | undefined;
 	const deadline = new Promise<'deadline'>((resolve) => {
-		timer = setTimeout(() => resolve('deadline'), FANOUT_DEADLINE_MS);
+		timer = setTimeout(() => resolve('deadline'), Math.max(0, FANOUT_DEADLINE_MS - (Date.now() - startedAt)));
 	});
 	let answers: (DeviceAnswer | 'deadline')[];
 	try {
@@ -103,27 +110,49 @@ export async function fanOutPush(delivery: PushDelivery): Promise<FanoutResult> 
 	const counts = { sent: 0, alreadySent: alreadySent.size, transient: 0 };
 	const sentIds: number[] = [];
 	const goneIds: number[] = [];
+	const transientReasons: string[] = [];
 	pending.forEach((subscription, index) => {
 		const answer = answers[index] ?? 'deadline';
 		const verdict = judgeDevice(answer);
 		if (verdict === 'sent') sentIds.push(subscription.id);
 		else if (verdict === 'gone') goneIds.push(subscription.id);
-		else if (verdict === 'transient') counts.transient += 1;
-		else {
+		else if (verdict === 'transient') {
+			counts.transient += 1;
+			transientReasons.push(describe(answer));
+		} else {
 			// Our request is wrong (400, 413, or 401/403: VAPID doesn't match the subscription's key).
-			const status = answer !== 'deadline' && answer.kind === 'answered' ? answer.status : '?';
-			console.error(`Push ${delivery.idempotencyKey}: push service rejected it (${status}), skipped that device`);
+			console.error(
+				`Push ${delivery.idempotencyKey}: push service rejected it (${describe(answer)}), skipped that device`,
+			);
 		}
 	});
 	counts.sent = sentIds.length;
+	// What made it transient, so a device that never recovers can be told apart from an outage. Status
+	// codes and error codes only, never the endpoint.
+	if (transientReasons.length > 0) {
+		console.warn(`Push ${delivery.idempotencyKey}: transient on ${transientReasons.join(', ')}`);
+	}
 
 	if (sentIds.length > 0) {
 		await db.transaction(async (tx) => {
+			// A device can be removed meanwhile (sign-out, the 10 cap, a ban): record only the rows that
+			// still exist, locked so they can't go before the insert (push_sends has a foreign key to them).
+			const stillThere = (
+				await tx
+					.select({ id: pushSubscriptions.id })
+					.from(pushSubscriptions)
+					.where(inArray(pushSubscriptions.id, sentIds))
+					.for('share')
+			).map((row) => row.id);
+			if (stillThere.length === 0) return;
 			await tx
 				.insert(pushSends)
-				.values(sentIds.map((subscriptionId) => ({ idempotencyKey: delivery.idempotencyKey, subscriptionId })))
+				.values(stillThere.map((subscriptionId) => ({ idempotencyKey: delivery.idempotencyKey, subscriptionId })))
 				.onConflictDoNothing();
-			await tx.update(pushSubscriptions).set({ lastUsedAt: new Date() }).where(inArray(pushSubscriptions.id, sentIds));
+			await tx
+				.update(pushSubscriptions)
+				.set({ lastUsedAt: new Date() })
+				.where(inArray(pushSubscriptions.id, stillThere));
 		});
 	}
 	// Only the recipient's own rows: an endpoint moved to someone else since we read it keeps working.

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { decodeBase64Url, isP256PublicKey } from '../lib/vapid-key.js';
 
 // Notifications spec rule 10: auth-server only ever calls known push services, so a subscription
 // can't be used to make it request an arbitrary URL. Hostnames are compared exactly, or as a suffix
@@ -25,12 +26,15 @@ export function isAllowedPushEndpoint(endpoint: string): boolean {
 	return EXACT_HOSTS.has(host) || HOST_SUFFIXES.some((suffix) => host.endsWith(suffix));
 }
 
-// base64url without padding, what browsers send in PushSubscription.toJSON(). Only the shape and a
-// sane length are checked here, not that the bytes are a valid key (that fails when sending).
-// p256dh is a 65-byte uncompressed P-256 point (87 characters), auth is 16 bytes (22 characters).
-const base64Url = /^[A-Za-z0-9_-]+$/;
-const p256dh = z.string().regex(base64Url).min(80).max(100);
-const auth = z.string().regex(base64Url).min(16).max(48);
+// base64url without padding, what browsers send in PushSubscription.toJSON(). Checked as the real
+// thing, since a key web-push can't encrypt with would fail every push to that user:
+// p256dh is the browser's P-256 public key (65-byte uncompressed point, on the curve), auth is the
+// 16-byte shared secret (RFC 8291).
+const p256dh = z.string().max(100).refine(isP256PublicKey, 'p256dh must be a P-256 public key');
+const auth = z
+	.string()
+	.max(48)
+	.refine((value) => decodeBase64Url(value, 16) !== null, 'auth must be 16 bytes');
 
 // Shape only. Whether the endpoint is an allowed host is a separate answer (422 invalid_endpoint).
 export const subscribeBody = z.object({

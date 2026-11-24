@@ -56,8 +56,9 @@ Branch **`feature/notifications-push`**. Each stage: `pnpm typecheck`, `pnpm tes
 - Stage 3: `DELETE` is not gated on `PUSH_NOTIFICATIONS_ENABLED`, so sign-out cleanup still works
   after the flag is turned off. `PUT` is (404 `push_disabled`).
 - Stage 3: the 10 cap and the upsert run in one transaction under a per-user advisory lock
-  (`pg_advisory_xact_lock(hashtext(user_id))`). `p256dh` must be 80-100 and `auth` 16-48 base64url
-  characters, no padding. Pure validation lives in `src/notifications/push-input.ts` (tested).
+  (`pg_advisory_xact_lock(hashtext(user_id))`). `p256dh` must be a P-256 point and `auth` 16 bytes,
+  base64url without padding (tightened in the stages 6-9 review). Pure validation lives in
+  `src/notifications/push-input.ts` (tested).
 - Stage 4: better-auth runs `user.update.after` after the update is saved. `src/scripts/set-role.ts`
   bypasses hooks but never bans, so it's unaffected.
 - Stage 5: `src/notifications/push-copy.ts` exports `reportConversationPushCopy(kind, data, locale)`
@@ -65,6 +66,35 @@ Branch **`feature/notifications-push`**. Each stage: `pnpm typecheck`, `pnpm tes
   `reportReminderPushCopy(data, locale)`, all returning `{ title, body }`; the data types are
   exported from `templates.tsx`. Dates match staff-app's list (see *Review fixes*). Not truncated: the 4 KB payload budget is for the learning stage to check.
 - `pnpm exec biome check .` fails on `.agents/` (pre-existing); the checks use `biome check src`.
+- Stages 6-9, contract details beyond the spec (also proposed for the spec's auth-server contract):
+  - Push answers: 200 `{ sent }`; 404 `no_push_subscription` | `recipient_unavailable`; 503
+    `send_failed` | `push_disabled` (the flag off here: 503, never 404, which membership-management
+    reads as "route not deployed"); 422 `invalid_request` (push fields with channel email, or missing
+    with push) | `invalid_data` (also a message over 3993 bytes) | `unknown_template` (no push copy).
+    No 409 for push: `tag`, `Topic` and `push_sends` make a repeat harmless.
+  - `notificationId` ≥ 1 or null; `badgeCount` 0 to 1,000,000.
+  - 401/403 from a push service = our VAPID signature doesn't match the subscription's key: logged as
+    a bug, the subscription kept. After a key rotation, old subscriptions log an error on every
+    delivery until the 10-device LRU, a sign-out or a re-subscribe (staff-app re-subscribes when the
+    key changed) removes them. **Ops: never rotate the VAPID pair casually.**
+  - A subscription web-push can't encrypt for (an old or hand-made row; the subscribe route now
+    checks the keys) is deleted like a 410.
+
+### Review fixes, stages 6-9 (spec-reviewer, Opus): no blockers
+
+1. Config checks the VAPID **pair** (`isVapidPair`: the private key's derived public key equals
+   `VAPID_PUBLIC_KEY`, and the scalar is in range). A mismatched pair would have made every push a
+   401/403 and silently turned push off.
+2. Subscription keys are checked as the real thing on `PUT`: `p256dh` a 65-byte P-256 point on the
+   curve, `auth` exactly 16 bytes (`push-input.ts`, reusing `vapid-key.ts`). And `sendToDevice` runs
+   web-push's `generateRequestDetails` (encrypt + sign, no network) first: a throw is `unusable` →
+   deleted, instead of a transient retried for 24 h.
+3. The 4 s fan-out budget runs from the start of `fanOutPush`, so slow reads before the sends count.
+4. `push_sends` is inserted only for subscriptions still there, locked `FOR SHARE`, so a device
+   removed meanwhile can't roll back the others' records with a foreign-key error.
+5. Transient devices log their reason (status or error code, never the endpoint).
+6. Accepted: an endpoint moved to another user between the read and the send gets one push meant for
+   the old owner (a 4 s window; the content follows the lock-screen rule).
 
 ### Review fixes
 

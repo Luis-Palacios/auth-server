@@ -1,6 +1,6 @@
 import { isIP } from 'node:net';
 import { z } from 'zod';
-import { isVapidPrivateKey, isVapidPublicKey } from './vapid-key.js';
+import { isVapidPair, isVapidPrivateKey, isVapidPublicKey } from './vapid-key.js';
 
 // One TRUSTED_PROXIES entry: a bare IP ("10.0.0.5") or a CIDR range ("10.0.0.0/16", "2400:cb00::/32").
 // better-auth accepts both but only *warns* on a malformed one and then ignores it, which can silently
@@ -151,6 +151,19 @@ const envSchema = z
 			ctx.addIssue({
 				code: 'custom',
 				message: 'VAPID_PRIVATE_KEY must be a P-256 private key (see .env.example: web-push generate-vapid-keys)',
+				path: ['VAPID_PRIVATE_KEY'],
+			});
+		} else if (
+			data.VAPID_PUBLIC_KEY &&
+			data.VAPID_PRIVATE_KEY &&
+			isVapidPublicKey(data.VAPID_PUBLIC_KEY) &&
+			!isVapidPair(data.VAPID_PUBLIC_KEY, data.VAPID_PRIVATE_KEY)
+		) {
+			// Each half looks right but they aren't one pair: every push service would refuse every push
+			// (401/403), which the fan-out can only log. Fail now instead.
+			ctx.addIssue({
+				code: 'custom',
+				message: 'VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY are not the same key pair',
 				path: ['VAPID_PRIVATE_KEY'],
 			});
 		}

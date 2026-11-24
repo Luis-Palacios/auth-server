@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createECDH, randomBytes } from 'node:crypto';
 import { describe, it } from 'node:test';
 import { isAllowedPushEndpoint, subscribeBody } from './push-input.js';
 
@@ -47,19 +48,27 @@ describe('isAllowedPushEndpoint', () => {
 });
 
 describe('subscribeBody', () => {
-	const p256dh = 'B'.repeat(87);
-	const auth = 'a'.repeat(22);
+	// What a browser sends: its P-256 public key and a 16-byte secret.
+	const ecdh = createECDH('prime256v1');
+	ecdh.generateKeys();
+	const p256dh = ecdh.getPublicKey('base64url', 'uncompressed');
+	const auth = randomBytes(16).toString('base64url');
 	const endpoint = 'https://fcm.googleapis.com/fcm/send/abc';
 
 	it('accepts a browser subscription', () => {
 		assert.ok(subscribeBody.safeParse({ endpoint, keys: { p256dh, auth } }).success);
 	});
 
+	// 65 bytes with the 0x04 marker, but X and Y aren't a point on the curve.
+	const offCurve = Buffer.concat([Buffer.from([0x04]), Buffer.alloc(64, 1)]).toString('base64url');
 	const invalid: Record<string, unknown> = {
 		'no keys': { endpoint },
-		'padded auth': { endpoint, keys: { p256dh, auth: `${'a'.repeat(22)}==` } },
-		'standard base64 key': { endpoint, keys: { p256dh: `${'B'.repeat(86)}+`, auth } },
+		'padded auth': { endpoint, keys: { p256dh, auth: `${auth}==` } },
+		'standard base64 key': { endpoint, keys: { p256dh: `${p256dh.slice(0, -1)}+`, auth } },
 		'short p256dh': { endpoint, keys: { p256dh: 'abc', auth } },
+		'60-byte p256dh': { endpoint, keys: { p256dh: randomBytes(60).toString('base64url'), auth } },
+		'p256dh off the curve': { endpoint, keys: { p256dh: offCurve, auth } },
+		'12-byte auth': { endpoint, keys: { p256dh, auth: randomBytes(12).toString('base64url') } },
 		'long auth': { endpoint, keys: { p256dh, auth: 'a'.repeat(200) } },
 		'endpoint not a string': { endpoint: 1, keys: { p256dh, auth } },
 	};

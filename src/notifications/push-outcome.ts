@@ -6,6 +6,7 @@ import type { DeviceAnswer } from './push-send.js';
 // - sent: 2xx. The push service accepted it (201 Created); it will deliver when the device is online.
 // - gone: 404 / 410. The subscription no longer exists at the push service (the user revoked
 //   permission, cleared site data, the browser rotated it). Delete it: it will never work again.
+//   Also a row whose keys web-push can't encrypt for.
 // - bug: 400 / 413, and the 401 / 403 a push service sends when our VAPID signature doesn't match the
 //   key the subscription was made with. Our request is wrong; retrying the same bytes can't help. Log
 //   it as an error and skip that device.
@@ -15,6 +16,8 @@ export type DeviceVerdict = 'sent' | 'gone' | 'bug' | 'transient';
 
 export function judgeDevice(answer: DeviceAnswer | 'deadline'): DeviceVerdict {
 	if (answer === 'deadline' || answer.kind === 'unreachable') return 'transient';
+	// Keys web-push can't encrypt for: the row can never work, so it goes like a 410.
+	if (answer.kind === 'unusable') return 'gone';
 	const { status } = answer;
 	if (status >= 200 && status < 300) return 'sent';
 	if (status === 404 || status === 410) return 'gone';

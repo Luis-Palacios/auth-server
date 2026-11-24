@@ -6,6 +6,8 @@ import { PUSH_SOCKET_TIMEOUT_MS, PUSH_TTL_SECONDS, pushTopic, sendToDevice } fro
 const subscription = { endpoint: 'https://fcm.googleapis.com/fcm/send/abc', keys: { p256dh: 'P', auth: 'A' } };
 const keys = webpush.generateVAPIDKeys();
 const vapid = { subject: 'mailto:test@example.org', ...keys };
+// The fake subscription's keys aren't real, so skip web-push's encryption step unless a test wants it.
+const prepare = () => undefined;
 
 describe('push topic', () => {
 	it('is 32 URL-safe base64 characters', () => {
@@ -25,6 +27,7 @@ describe('sendToDevice', () => {
 		let seen: RequestOptions | undefined;
 		const answer = await sendToDevice(subscription, '{}', 'key-1', {
 			vapid,
+			prepare,
 			send: async (_sub, _payload, options) => {
 				seen = options;
 				return { statusCode: 201, body: '', headers: {} };
@@ -43,6 +46,7 @@ describe('sendToDevice', () => {
 	it('turns a push service error back into its status', async () => {
 		const answer = await sendToDevice(subscription, '{}', 'key-1', {
 			vapid,
+			prepare,
 			send: async () => {
 				throw new WebPushError('Received unexpected response code', 410, {}, '', subscription.endpoint);
 			},
@@ -53,10 +57,33 @@ describe('sendToDevice', () => {
 	it('reports no answer as unreachable, with only the error code', async () => {
 		const answer = await sendToDevice(subscription, '{}', 'key-1', {
 			vapid,
+			prepare,
 			send: async () => {
 				throw Object.assign(new Error('socket hang up at https://fcm…'), { code: 'ECONNRESET' });
 			},
 		});
 		assert.deepEqual(answer, { kind: 'unreachable', reason: 'ECONNRESET' });
+	});
+
+	it('reports keys web-push cannot encrypt for as unusable, without sending', async () => {
+		let sent = false;
+		const answer = await sendToDevice(
+			// A 60-byte "p256dh": web-push's real encryption step refuses it.
+			{
+				endpoint: subscription.endpoint,
+				keys: { p256dh: Buffer.alloc(60, 1).toString('base64url'), auth: 'A'.repeat(22) },
+			},
+			'{}',
+			'key-1',
+			{
+				vapid,
+				send: async () => {
+					sent = true;
+					return { statusCode: 201, body: '', headers: {} };
+				},
+			},
+		);
+		assert.equal(answer.kind, 'unusable');
+		assert.equal(sent, false);
 	});
 });
