@@ -43,8 +43,8 @@ Branch **`feature/notifications-push`**. Each stage: `pnpm typecheck`, `pnpm tes
 | 5. Push copy (`{ title, body }`, en/es) with tests | done | `db7d465` |
 | 6. VAPID keys and the `web-push` package | done (with Luis; Claude wrote it) | `02c07ca` |
 | 7. The send: payload, encryption, `TTL` / `Urgency` / `Topic` | done (with Luis; Claude wrote it) | `6da6a02`, `448e520` |
-| 8. Fan-out, push-service responses, `push_sends` | with Luis | |
-| 9. `channel: "push"` envelope on `POST /internal/notifications` | with Luis | |
+| 8. Fan-out, push-service responses, `push_sends` | done (Claude wrote it) | `01a0157` |
+| 9. `channel: "push"` envelope on `POST /internal/notifications` | done (Claude wrote it) | `01a0157` |
 
 ### Decisions and deviations
 
@@ -133,7 +133,42 @@ placeholder `VAPID_*` values, the dev server restarted by touching `src/index.ts
    `{ title, body }` in `en`/`es` from validated `data`, the strings of the spec's *Copy* table.
    Not wired to any route.
 
-## Learning stages (with Luis, not built by the subagent)
+## Stages 6-9 (the Web Push core)
+
+Built in the main session as a walkthrough (stops 1-3 explained one at a time, then the rest straight
+through at Luis's request). What was built, and where it differs from the plan below:
+
+- **6, VAPID** (`02c07ca`): `web-push` 3.6.7. `src/lib/vapid-key.ts` checks the pair at startup (public
+  key 65 bytes starting 0x04, private key 32 bytes, base64url that round-trips). `push-vapid.ts`
+  builds `{ subject, publicKey, privateKey }` once; it is passed to each send instead of web-push's
+  global `setVapidDetails()` (deviation from the plan below: explicit, testable, no import order).
+- **7, the message and the send** (`6da6a02`, `448e520`): `push-message.ts` (the service worker's
+  JSON, refused over 3993 bytes, the aes128gcm plaintext limit) and `push-send.ts` (one device:
+  `TTL` 86400, `urgency: normal`, `topic` = first 32 base64url chars of SHA-256(key), 3 s socket
+  timeout; answers normalised to answered-with-status or unreachable, never the endpoint in logs).
+  web-push sends through legacy `url.parse`, which is why stage 3 accepts only endpoints that parse
+  to themselves.
+- **8, fan-out** (`01a0157`): `push-outcome.ts` is the table below as a pure function (plus 401/403,
+  which push services send when the VAPID key doesn't match the subscription's: logged as a bug and
+  skipped, like 400/413). `push-fanout.ts`: recipient check (`findRecipient`: exists, verified, not
+  banned), copy in `user.locale`, devices without a `push_sends` row for the key sent in parallel,
+  waiting at most 4 s (`FANOUT_DEADLINE_MS`; membership-management gives up at 5 s): a device still
+  pending is transient. Sent → `push_sends` + `last_used_at` in one transaction; 404/410 → the
+  recipient's row deleted.
+- **9, the route** (`01a0157`): `channel`, `notificationId`, `badgeCount` on the envelope; push
+  fields with channel email (or missing with push) → 422 `invalid_request`. Push answers: 200
+  `{ sent }`, 404 `no_push_subscription` / `recipient_unavailable`, 503 `send_failed`, 503
+  `push_disabled` when the flag is off here (never a 404, which membership-management reads as "route
+  not deployed"), 422 `invalid_data` for a message over the limit, 422 `unknown_template` for a
+  template without push copy. No idempotency conflict check for push (the `tag`, `Topic` and
+  `push_sends` make a repeat harmless).
+- **Checked against the real FCM** with the local dev server: no device → 404
+  `no_push_subscription`; push fields on an email request → 422; a fake subscription at
+  `fcm.googleapis.com` → FCM answered gone, the row was deleted, 404, in 314 ms. A real browser
+  subscription (201 and the notification on screen) comes with staff-app's service worker.
+- Local `.env` has a dev-only VAPID pair and `PUSH_NOTIFICATIONS_ENABLED=true` (not committed).
+
+### The plan these stages followed
 
 Contract for each, from the spec (*Contracts (Part 2: push) → auth-server*):
 

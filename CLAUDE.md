@@ -190,8 +190,11 @@ have tests so far; anything that needs the DB or `config` is still checked by ha
   `PUT`/`DELETE /subscriptions`, errors `{ code, message }`. Endpoint rules in
   `src/notifications/push-input.ts`. A ban deletes the user's subscriptions
   (`databaseHooks.user.update.after`). `src/notifications/push-copy.ts` renders `{ title, body }`.
-  Off unless `PUSH_NOTIFICATIONS_ENABLED`, which then requires the three `VAPID_*` values. The send
-  itself is not built yet (learning stages in the handoff).
+  Off unless `PUSH_NOTIFICATIONS_ENABLED`, which then requires the three `VAPID_*` values (checked as a
+  P-256 pair at startup, `src/lib/vapid-key.ts`). The send: `POST /internal/notifications` with
+  `channel: "push"` → `push-fanout.ts` (every device in parallel, 4 s deadline, `push_sends` so a retry
+  skips devices already sent) → `push-send.ts` (`web-push`, `TTL` 24 h, `Topic`) with the decision table
+  in `push-outcome.ts`. VAPID details are passed per send, never `setVapidDetails()`.
 - **Recipient language**: `user.locale` (`en`/`es`, a better-auth `additionalFields` entry) picks
   the email's language. `fillLocaleIfEmpty` in `auth.ts`, on `databaseHooks.session.create.after`
   and `session.update.after`, fills it from the request's `Accept-Language` only while it's empty
